@@ -9,7 +9,7 @@ export function Header() {
             <Stethoscope className="w-6 h-6 text-white" />
           </div>
           <div>
-            <h1 className="text-slate-900">Buscador Inteligente de Doctores y Clínicas</h1>
+            <h1 className="text-slate-900">TE QUIERO JESÚS <3</h1>
             <p className="text-sm text-red-600">Rimac Hackathon – Reto Data</p>
           </div>
         </div>
