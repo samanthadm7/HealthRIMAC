@@ -1,169 +1,76 @@
-import { useRef, useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, Pill, ShoppingCart } from 'lucide-react';
-import { Card, CardContent } from './ui/card';
-import { Button } from './ui/button';
-import type { Medicine } from '../data/medicines';
+import { Medicine } from '../data/medicines';
+import MedicineCard from './MedicineCard';
+// Importamos los componentes de carrusel que YA tienes en tu proyecto
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselNext,
+  CarouselPrevious,
+} from './ui/carousel';
 
 interface MedicineCarouselProps {
   medicines: Medicine[];
   specialty?: string;
 }
 
-export function MedicineCarousel({ medicines, specialty }: MedicineCarouselProps) {
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const [canScrollLeft, setCanScrollLeft] = useState(false);
-  const [canScrollRight, setCanScrollRight] = useState(true);
-
-  const checkScrollButtons = () => {
-    if (scrollContainerRef.current) {
-      const { scrollLeft, scrollWidth, clientWidth } = scrollContainerRef.current;
-      setCanScrollLeft(scrollLeft > 0);
-      setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 10);
-    }
-  };
-
-  useEffect(() => {
-    checkScrollButtons();
-    window.addEventListener('resize', checkScrollButtons);
-    return () => window.removeEventListener('resize', checkScrollButtons);
-  }, [medicines]);
-
-  const scroll = (direction: 'left' | 'right') => {
-    if (scrollContainerRef.current) {
-      const scrollAmount = 400;
-      const newScrollLeft = direction === 'left' 
-        ? scrollContainerRef.current.scrollLeft - scrollAmount
-        : scrollContainerRef.current.scrollLeft + scrollAmount;
-      
-      scrollContainerRef.current.scrollTo({
-        left: newScrollLeft,
-        behavior: 'smooth'
-      });
-    }
-  };
+export const MedicineCarousel = ({ medicines, specialty }: MedicineCarouselProps) => {
+  
+  if (!medicines || medicines.length === 0) {
+    return null;
+  }
 
   return (
-    <section className="bg-gradient-to-r from-blue-600 to-blue-700 py-12 -mx-4 px-4 md:rounded-2xl">
-      <div className="max-w-7xl mx-auto">
-        <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center gap-3">
-            <div className="bg-white p-2.5 rounded-lg">
-              <Pill className="w-6 h-6 text-blue-600" />
-            </div>
-            <div>
-              <h2 className="text-white">Medicamentos Recomendados</h2>
-              <p className="text-blue-100 text-sm">
-                {specialty 
-                  ? `Medicamentos para ${specialty}` 
-                  : 'Los más consultados por nuestros especialistas'
-                }
-              </p>
-            </div>
+    <div className="w-full py-10 bg-gray-50 rounded-2xl">
+      <div className="container mx-auto px-8 md:px-12"> {/* Padding extra para las flechas */}
+        
+        {/* Encabezado: Título a la izquierda, controles a la derecha */}
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+              <span className="text-2xl">💊</span> Medicamentos Recomendados
+              {specialty && <span className="text-red-600">para {specialty}</span>}
+            </h2>
+            <p className="text-sm text-gray-500 mt-1">
+              Los más consultados por nuestros especialistas
+            </p>
           </div>
-
-          <div className="hidden md:flex gap-2">
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => scroll('left')}
-              disabled={!canScrollLeft}
-              className="bg-white/10 border-white/20 text-white hover:bg-white/20 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed"
-            >
-              <ChevronLeft className="w-5 h-5" />
-            </Button>
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => scroll('right')}
-              disabled={!canScrollRight}
-              className="bg-white/10 border-white/20 text-white hover:bg-white/20 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed"
-            >
-              <ChevronRight className="w-5 h-5" />
-            </Button>
-          </div>
+          {/* Enlace "Ver todos" discreto */}
+          <a href="#" className="text-sm font-medium text-red-600 hover:underline hidden sm:block">
+            Ver todos &rarr;
+          </a>
         </div>
 
-        <div 
-          ref={scrollContainerRef}
-          onScroll={checkScrollButtons}
-          className="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide"
-          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+        {/* COMPONENTE CARRUSEL */}
+        <Carousel
+          opts={{
+            align: "start",
+            loop: true, 
+          }}
+          className="w-full relative group"
         >
-          {medicines.map((medicine) => (
-            <div 
-              key={medicine.id} 
-              className="flex-shrink-0 w-[280px] snap-start"
-            >
-              <Card className="bg-white border-0 shadow-lg hover:shadow-xl transition-shadow duration-300 h-full">
-                <CardContent className="p-0">
-                  <div className="relative h-48 bg-gradient-to-br from-slate-100 to-slate-50 overflow-hidden">
-                    <img
-                      src={medicine.image}
-                      alt={medicine.name}
-                      className="w-full h-full object-cover"
-                    />
-                    <div className="absolute top-3 right-3">
-                      <div className="bg-red-500 text-white px-3 py-1 rounded-full text-sm shadow-md">
-                        S/ {medicine.price.toFixed(2)}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="p-5">
-                    <h4 className="text-slate-900 mb-1 line-clamp-1">{medicine.name}</h4>
-                    <p className="text-sm text-slate-600 mb-4 line-clamp-2 min-h-[40px]">
-                      {medicine.presentation}
-                    </p>
-                    <Button 
-                      size="sm" 
-                      className="w-full bg-blue-600 hover:bg-blue-700 text-white"
-                    >
-                      <ShoppingCart className="w-4 h-4 mr-2" />
-                      Comprar en Cuidafarma
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          ))}
-        </div>
+          <CarouselContent className="-ml-4">
+            {medicines.map((medicine) => (
+              // Aquí está el truco visual:
+              // basis-1/2 (2 ítems en móvil)
+              // basis-1/3 (3 ítems en tablet)
+              // basis-1/4 (4 ítems en PC - igual que tu imagen de referencia)
+              <CarouselItem key={medicine.id} className="pl-4 basis-1/2 md:basis-1/3 lg:basis-1/4">
+                <div className="h-full p-1">
+                  <MedicineCard medicine={medicine} />
+                </div>
+              </CarouselItem>
+            ))}
+          </CarouselContent>
+          
+          {/* Flechas de Navegación (Estilo flotante y moderno) */}
+          <CarouselPrevious className="absolute -left-4 md:-left-10 top-1/2 -translate-y-1/2 h-10 w-10 border-gray-300 text-gray-600 hover:bg-red-600 hover:text-white hover:border-red-600 transition-colors bg-white shadow-md" />
+          <CarouselNext className="absolute -right-4 md:-right-10 top-1/2 -translate-y-1/2 h-10 w-10 border-gray-300 text-gray-600 hover:bg-red-600 hover:text-white hover:border-red-600 transition-colors bg-white shadow-md" />
+        </Carousel>
 
-        {/* Mobile scroll indicators */}
-        <div className="flex justify-center gap-2 mt-6 md:hidden">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => scroll('left')}
-            disabled={!canScrollLeft}
-            className="bg-white/10 border-white/20 text-white hover:bg-white/20 hover:text-white disabled:opacity-30"
-          >
-            <ChevronLeft className="w-4 h-4 mr-1" />
-            Anterior
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => scroll('right')}
-            disabled={!canScrollRight}
-            className="bg-white/10 border-white/20 text-white hover:bg-white/20 hover:text-white disabled:opacity-30"
-          >
-            Siguiente
-            <ChevronRight className="w-4 h-4 ml-1" />
-          </Button>
-        </div>
-
-        <div className="mt-6 bg-yellow-500/20 border border-yellow-500/30 rounded-lg p-4">
-          <p className="text-sm text-yellow-100">
-            <strong className="text-white">Nota importante:</strong> Esta información es solo referencial. 
-            Consulte siempre con su médico antes de tomar cualquier medicamento.
-          </p>
-        </div>
       </div>
-
-      <style jsx global>{`
-        .scrollbar-hide::-webkit-scrollbar {
-          display: none;
-        }
-      `}</style>
-    </section>
+    </div>
   );
-}
+};
+
+export default MedicineCarousel;
