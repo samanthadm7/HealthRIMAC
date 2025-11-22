@@ -33,7 +33,7 @@ export default function App() {
 
     try {
       // 1. URL DEL ENDPOINT
-      const url = 'http://172.16.80.49:8000/search/busqueda';
+      const url = 'http://10.160.29.147:8000/search/busqueda';
       
       // 2. PREPARAR EL CUERPO (BODY) DEL REQUEST
       // Creamos un objeto limpio solo con los datos que tienen valor

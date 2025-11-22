@@ -7,8 +7,40 @@ import { AISearchBar } from './AISearchBar';
 import { LeoResponse } from './LeoResponse';
 import { DoctorCard } from './DoctorCard';
 import { MedicineCarousel } from './MedicineCarousel';
-import { getMedicinesBySpecialty } from '../data/medicines';
+// Importamos Medicine y la función asíncrona
+import { Medicine, getMedicinesBySpecialty } from '../data/medicines'; 
 import type { Doctor, SearchFilters, AISearchResult } from '../types/doctor';
+
+// --- NUEVAS FUNCIONES DE UTILIDAD ---
+
+// Helper para capitalizar la primera letra
+const capitalize = (s: string): string => {
+  if (!s) return '';
+  return s.charAt(0).toUpperCase() + s.slice(1);
+};
+
+// Convierte una fecha ISO (YYYY-MM-DD) a un día de la semana en español (e.g., "lunes")
+const dateToSpanishDay = (dateString: string): string | undefined => {
+  if (!dateString) return undefined;
+  try {
+    const date = new Date(dateString + 'T00:00:00');
+    if (isNaN(date.getTime())) return undefined;
+
+    let day = date.toLocaleDateString('es-ES', { weekday: 'long' }).toLowerCase();
+    
+    // Aseguramos que 'miércoles' se envíe sin acento si es necesario
+    if (day === 'miércoles') {
+      day = 'miercoles';
+    }
+
+    return day;
+    
+  } catch (e) {
+    console.error("Error converting date to Spanish day:", e);
+    return undefined;
+  }
+};
+
 
 // --- TIPOS INTERNOS PARA LA METADATA ---
 interface Especialidad { id: number; nombre: string; }
@@ -49,11 +81,17 @@ export function SearchSection({ onSearch, onAISearch, doctors, onDoctorSelect, s
   });
   const [isLoading, setIsLoading] = useState(true);
 
+  // --- ESTADOS para el CAROUSEL ---
+  const [medicines, setMedicines] = useState<Medicine[]>([]);
+  // Este estado rastrea el nombre de la especialidad que se muestra en el carrusel
+  const [carouselSpecialtyName, setCarouselSpecialtyName] = useState(selectedSpecialty); 
+  // ---------------------------------------
+
   // 1. CARGAR METADATA AL INICIO
   useEffect(() => {
     const fetchMetadata = async () => {
       try {
-        const response = await fetch('http://172.16.80.49:8000/search/metadata/filtros'); 
+        const response = await fetch('http://10.160.29.147:8000/search/metadata/filtros'); 
         if (!response.ok) throw new Error('Error al cargar filtros');
         const data: MetadataResponse = await response.json();
         setApiData(data);
@@ -65,6 +103,40 @@ export function SearchSection({ onSearch, onAISearch, doctors, onDoctorSelect, s
     };
     fetchMetadata();
   }, []);
+
+  // --- MODIFICACIÓN CLAVE: CARGAR MEDICAMENTOS al inicio y con el cambio de especialidad ---
+  useEffect(() => {
+    // 1. Determinar el ID de la especialidad a usar
+    const specialtyObj = apiData.especialidades.find(s => s.nombre === selectedSpecialty);
+    let specialtyId: number | undefined = specialtyObj?.id;
+    let specialtyNameToUse = selectedSpecialty;
+
+    // LÓGICA PARA CARGA INICIAL (SIN especialidad seleccionada)
+    if (selectedSpecialty === '' || selectedSpecialty === 'none') {
+        // Al cargar la página, no hay ID de especialidad.
+        // specialtyId es undefined, lo que hará que getMedicinesBySpecialty envíe "especialidad_ids": null
+        // --- CAMBIO CLAVE AQUÍ: Usamos una cadena vacía en lugar de 'General' ---
+        specialtyNameToUse = ''; 
+        specialtyId = undefined; 
+    }
+    
+    // 2. Buscar medicamentos 
+    // Solo llamamos si la metadata ya cargó (para la inicial 'General') o si la especialidad ha cambiado a una válida.
+    if (apiData.especialidades.length > 0 || specialtyId !== undefined || (selectedSpecialty === '' && apiData.especialidades.length > 0)) {
+      // getMedicinesBySpecialty(undefined) enviará el payload con "especialidad_ids": null
+      getMedicinesBySpecialty(specialtyId) 
+        .then(data => setMedicines(data))
+        .catch(() => setMedicines([]));
+    } else {
+        // Caso: Metadata aún cargando.
+        setMedicines([]); 
+    }
+
+    // 3. Actualizar el nombre de la especialidad para el título del carrusel
+    setCarouselSpecialtyName(specialtyNameToUse);
+
+  }, [selectedSpecialty, apiData.especialidades]); // Depende de la especialidad seleccionada y los datos de la API
+
 
   // Filtrado inteligente de sedes (Solo muestra sedes de la clínica seleccionada)
   const availableBranches = useMemo(() => {
@@ -84,14 +156,20 @@ export function SearchSection({ onSearch, onAISearch, doctors, onDoctorSelect, s
     const selectedClinicObj = apiData.clinicas.find(c => c.nombre === clinicName);
     const selectedBranchObj = apiData.sedes.find(s => s.nombre === branch);
 
+    // CONVERTIMOS LA FECHA A DÍA DE LA SEMANA
+    const dayOfWeek = dateToSpanishDay(availability);
+
     // Construimos el objeto de filtros con los nombres que espera la API (snake_case)
     const filtersForApi: SearchFilters = {
-      doctor_nombre: doctorName || undefined,
+      nombre_doctor: doctorName || undefined,
       especialidad_id: selectedSpecialtyObj?.id, // Mandamos ID
       clinica_id: selectedClinicObj?.id,         // Mandamos ID
-      sede_id: selectedBranchObj?.id,            // Mandamos ID
-      fecha: availability || undefined,
-      tipo_atencion: attentionType === 'all' ? undefined : attentionType,
+      distrito: selectedBranchObj?.distrito,     // Mandamos Distrito
+      
+      dia: dayOfWeek, // Enviamos el día de la semana
+      
+      // Capitalizamos el tipo de atención si no es 'all'
+      tipo_atencion: attentionType === 'all' ? undefined : capitalize(attentionType),
       
       // Extra: Mandamos el nombre de la especialidad para el carrusel de medicinas
       specialtyName: specialty !== 'none' ? specialty : undefined
@@ -111,8 +189,6 @@ export function SearchSection({ onSearch, onAISearch, doctors, onDoctorSelect, s
     setHasSearched(false);
     onSearch({});
   };
-
-  const medicines = getMedicinesBySpecialty(selectedSpecialty);
 
   return (
     <div>
@@ -144,8 +220,8 @@ export function SearchSection({ onSearch, onAISearch, doctors, onDoctorSelect, s
                     <Search className="w-6 h-6 text-red-600" />
                   </div>
                   <div className="text-left">
-                    <span className="font-semibold text-lg block">¿Prefieres usar los filtros tradicionales?</span>
-                    <span className="text-base text-slate-500 block mt-1">Busca por especialidad, clínica, sede y más criterios avanzados</span>
+                    <span className="font-semibold text-lg block">¿Prefieres usar los filtros?</span>
+                    <span className="text-base text-slate-500 block mt-1">Busca por especialidad, clínica, sede y más.</span>
                   </div>
                 </div>
                 <ChevronDown className="w-6 h-6 text-red-500 ml-auto group-hover:animate-bounce" />
@@ -334,7 +410,8 @@ export function SearchSection({ onSearch, onAISearch, doctors, onDoctorSelect, s
         </div>
       )}
 
-      <MedicineCarousel medicines={medicines} specialty={selectedSpecialty} />
+      {/* CAMBIO AQUÍ: Usamos el estado 'carouselSpecialtyName' para el título */}
+      <MedicineCarousel medicines={medicines} specialty={carouselSpecialtyName} />
     </div>
   );
 }

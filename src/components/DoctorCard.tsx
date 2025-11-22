@@ -48,7 +48,7 @@ export function DoctorCard({ doctor, onClick }: DoctorCardProps) {
             {doctor.verified && (
               <Badge className="bg-red-600 text-white border-0 shadow-md">
                 <BadgeCheck className="w-3 h-3 mr-1" />
-                CMP Verificado
+                CMP Habilitado
               </Badge>
             )}
           </div>

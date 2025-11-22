@@ -126,15 +126,15 @@ function detectAvailability(query: string): { availability: string; message: str
 }
 
 // Detectar tipo de atención
-function detectAttentionType(query: string): 'presencial' | 'virtual' | 'ambos' | null {
+function detectAttentionType(query: string): 'Presencial' | 'Virtual' | 'ambos' | null { // Actualiza el tipo de retorno si usas TypeScript estricto
   const normalized = normalizeText(query);
   
   if (normalized.includes('virtual') || normalized.includes('online') || normalized.includes('videollamada') || normalized.includes('teleconsulta')) {
-    return 'virtual';
+    return 'Virtual'; // CAMBIO AQUÍ: De 'virtual' a 'Virtual'
   }
   
   if (normalized.includes('presencial') || normalized.includes('en persona') || normalized.includes('consultorio')) {
-    return 'presencial';
+    return 'Presencial'; // CAMBIO AQUÍ: De 'presencial' a 'Presencial'
   }
   
   return null;

@@ -92,13 +92,13 @@ export function AISearchBar({ onSearch }: AISearchBarProps) {
             {/* 2. ZONA DE TEXTO (Tipografía mejorada) */}
             <div className="max-w-2xl mx-auto space-y-3">
               <h2 className="text-white font-bold text-4xl md:text-5xl tracking-tight drop-shadow-md">
-                Hola, soy Leo
+                Hola, soy Leo 🐾
               </h2>
               
-              <div className="flex items-center justify-center gap-2 text-red-100 font-medium text-xl">
+              {/* <div className="flex items-center justify-center gap-2 text-red-100 font-medium text-xl">
                 <span>Tu asistente médico inteligente</span>
                 <Sparkles className="w-5 h-5 text-yellow-300 animate-pulse" />
-              </div>
+              </div> */}
 
               <p className="text-white text-lg md:text-xl font-bold max-w-lg mx-auto leading-relaxed [-webkit-text-stroke:2px_white]">
                 Cuéntame qué sientes o qué necesitas, y encontraré al especialista ideal para ti en segundos.
