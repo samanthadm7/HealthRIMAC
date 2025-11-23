@@ -20,8 +20,8 @@ interface ClinicLocation {
   attentionType: string;
   logoUrl: string;
   price: number;
-  nextAvailable: string; // Ej: "Viernes 09:30"
-  endTime?: string;      // Ej: "13:00" (NUEVO CAMPO)
+  nextAvailable: string; 
+  endTime?: string;      
   bookingUrl: string;
 }
 
@@ -58,7 +58,6 @@ export function DoctorDetail({ doctor, onBack }: DoctorDetailProps) {
   const [medicines, setMedicines] = useState<Medicine[]>([]);
   const [isLoadingMedicines, setIsLoadingMedicines] = useState(false);
   
-  // Scroll al inicio al cargar
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
@@ -118,7 +117,6 @@ export function DoctorDetail({ doctor, onBack }: DoctorDetailProps) {
 
   const config = availabilityConfig[doctor.availability] || availabilityConfig.unavailable;
 
-  // Helper para limpiar disponibilidad
   const getAvailabilityText = (text: string) => {
     if (!text || text.includes('undefined') || text.includes('null')) {
       return "Consultar disponibilidad";
@@ -126,7 +124,6 @@ export function DoctorDetail({ doctor, onBack }: DoctorDetailProps) {
     return text;
   };
 
-  // Helper para limpiar distrito
   const getDistrictText = (district: string) => {
     if (!district || district === 'null' || district === 'undefined') return '';
     return `- ${district}`;
@@ -140,7 +137,7 @@ export function DoctorDetail({ doctor, onBack }: DoctorDetailProps) {
       </Button>
 
       <div className="grid lg:grid-cols-3 gap-8 mb-12">
-        {/* Left Column (Foto y Datos) */}
+
         <div className="lg:col-span-1">
           <Card className="overflow-hidden border-slate-200 sticky lg:top-24">
             <div className="relative h-80 bg-slate-100">
@@ -264,7 +261,6 @@ export function DoctorDetail({ doctor, onBack }: DoctorDetailProps) {
                       <span className="text-xs font-bold text-green-800 uppercase tracking-wide block mb-1">
                         Horario de Atención
                       </span>
-                      {/* CAMBIO: Mostrar Inicio - Fin */}
                       <p className="text-base text-slate-800 font-medium">
                         {getAvailabilityText(clinic.nextAvailable)}
                         {clinic.endTime && ` - ${clinic.endTime}`}

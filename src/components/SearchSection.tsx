@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { Search, MapPin, Calendar, User, Monitor, ChevronDown } from 'lucide-react';
+import { Search, MapPin, Calendar, User, Monitor, ChevronDown, Map } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
@@ -10,7 +10,6 @@ import { MedicineCarousel } from './MedicineCarousel';
 import { Medicine, getMedicinesBySpecialty } from '../data/medicines'; 
 import type { Doctor, SearchFilters, AISearchResult } from '../types/doctor';
 
-// ... (Funciones de utilidad se mantienen IGUAL)
 const capitalize = (s: string): string => s ? s.charAt(0).toUpperCase() + s.slice(1) : '';
 
 const dateToSpanishDay = (dateString: string): string | undefined => {
@@ -31,12 +30,11 @@ const normalizeText = (text: string | undefined | null) => {
   if (!text) return "";
   return text
     .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "") // Quita tildes
+    .replace(/[\u0300-\u036f]/g, "") 
     .toLowerCase()
     .trim();
 };
 
-// ... (Interfaces se mantienen IGUAL)
 interface Especialidad { id: number; nombre: string; }
 interface Clinica { id: number; nombre: string; }
 interface Sede { id: number; clinica_id: number; nombre: string; distrito: string; }
@@ -70,7 +68,6 @@ export function SearchSection({
   // --- ESTADOS ---
   const [doctorName, setDoctorName] = useState('');
   
-  // LÓGICA AUTOCOMPLETE
   const [specialty, setSpecialty] = useState('none');
   const [specialtySearch, setSpecialtySearch] = useState('');
   const [showSpecialtySuggestions, setShowSpecialtySuggestions] = useState(false);
@@ -82,8 +79,6 @@ export function SearchSection({
   const [attentionType, setAttentionType] = useState('all');
   const [hasSearched, setHasSearched] = useState(false);
   
-  // NUEVO: Referencia para guardar los resultados ORIGINALES de la IA
-  // Esto nos permite filtrar sobre ellos sin perderlos.
   const originalAiDoctorsRef = useRef<Doctor[]>([]);
   const lastAiInterpretationRef = useRef<string>('');
 
@@ -95,7 +90,7 @@ export function SearchSection({
   const [carouselSpecialtyName, setCarouselSpecialtyName] = useState(selectedSpecialty); 
   const scrollAnchorRef = useRef<HTMLDivElement>(null);
 
-  // 1. CARGAR METADATA (Sin cambios)
+  // 1. CARGAR METADATA 
   useEffect(() => {
     const fetchMetadata = async () => {
       try {
@@ -117,13 +112,14 @@ export function SearchSection({
     fetchMetadata();
   }, []);
 
-  // 2. CARGAR MEDICAMENTOS (Sin cambios)
+  // 2. CARGAR MEDICAMENTOS
   useEffect(() => {
-    if (aiMedicines && aiMedicines.length > 0) {
-      setMedicines(aiMedicines);
-      setCarouselSpecialtyName(selectedSpecialty || 'Recomendaciones de Leo');
-      return; 
-    }
+      if (aiMedicines && aiMedicines.length > 0) {
+        setMedicines(aiMedicines); 
+        setCarouselSpecialtyName(selectedSpecialty || 'Recomendaciones de Leo');
+        return;
+      }
+
     const fetchMedicines = async () => {
         try {
             const specialtyObj = apiData.especialidades?.find(s => s.nombre === selectedSpecialty);
@@ -135,13 +131,14 @@ export function SearchSection({
             setMedicines([]);
         }
     };
+
     if ((apiData.especialidades?.length > 0) || (selectedSpecialty === '' && (!apiData.especialidades || apiData.especialidades.length === 0))) {
       fetchMedicines();
     }
     setCarouselSpecialtyName(selectedSpecialty);
-  }, [selectedSpecialty, apiData.especialidades, aiMedicines]); 
 
-  // 3. SCROLL AUTOMÁTICO (Sin cambios)
+  }, [selectedSpecialty, apiData.especialidades, aiMedicines, aiInterpretation]); 
+
   useEffect(() => {
     if (aiInterpretation) {
       setHasSearched(true);
@@ -151,9 +148,6 @@ export function SearchSection({
     }
   }, [aiInterpretation]);
 
-  // NUEVO: CAPTURAR RESULTADOS IA
-  // Cada vez que cambia la interpretación (nueva búsqueda IA) y tenemos doctores, 
-  // actualizamos nuestro "backup" para filtrar sobre él.
   useEffect(() => {
     if (aiInterpretation && aiInterpretation !== lastAiInterpretationRef.current) {
         if (doctors.length > 0) {
@@ -161,14 +155,12 @@ export function SearchSection({
             lastAiInterpretationRef.current = aiInterpretation;
         }
     } else if (!aiInterpretation) {
-        // Si se limpia la IA, limpiamos el backup
         originalAiDoctorsRef.current = [];
         lastAiInterpretationRef.current = '';
     }
   }, [aiInterpretation, doctors]);
 
 
-  // LÓGICA AUTOCOMPLETE CLICK OUTSIDE (Sin cambios)
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (specialtyWrapperRef.current && !specialtyWrapperRef.current.contains(event.target as Node)) {
@@ -185,7 +177,6 @@ export function SearchSection({
   }, [specialty, specialtySearch]);
 
 
-  // 4. LÓGICA DE FILTRADO (Distritos/Clinicas - Sin cambios)
   const availableDistricts = useMemo(() => {
     if (!apiData.sedes || apiData.sedes.length === 0) return [];
     let filteredSedes = apiData.sedes;
@@ -219,47 +210,35 @@ export function SearchSection({
   }, [specialtySearch, apiData.especialidades]);
 
 
-// 5. EJECUTAR BÚSQUEDA (CORREGIDO CON ESTRUCTURA REAL)
   const handleSearch = () => {
     const selectedSpecialtyObj = apiData.especialidades?.find(s => s.nombre === specialty);
     const selectedClinicObj = apiData.clinicas?.find(c => c.nombre === clinicName);
     const selectedDistrict = branch !== 'none' ? branch : undefined;
     const dayOfWeek = dateToSpanishDay(availability);
 
-    // --- MODO FILTRADO LOCAL (SOBRE RESULTADOS IA) ---
     if (aiInterpretation && originalAiDoctorsRef.current.length > 0) {
         
         console.log("--- FILTRANDO ---");
         
         const filteredDoctors = originalAiDoctorsRef.current.filter(d => {
-            // 1. Filtro por Nombre
-            // Tu objeto tiene 'name' con el nombre completo
             if (doctorName) {
                 const search = normalizeText(doctorName);
                 const docFullName = normalizeText(d.name || ''); 
                 if (!docFullName.includes(search)) return false;
             }
 
-            // 2. Filtro por Especialidad
-            // Tu objeto usa 'specialty' (singular) o 'specializations' (array)
             if (specialty !== 'none') {
                 const filterSpec = normalizeText(specialty);
                 const docSpec = normalizeText(d.specialty || '');
-                // Opcional: si a veces viene vacío, buscar también en d.specializations
-                // const docSpecsArray = d.specializations?.map(s => normalizeText(s.name || '')).join(' ') || '';
-                
+
                 if (!docSpec.includes(filterSpec)) return false;
             }
 
-            // 3. Filtro por Clínica
-            // Tu objeto usa el array 'clinics' y dentro 'clinicName'
             if (clinicName !== 'none') {
                 const filterClinic = normalizeText(clinicName);
                 
-                // Opción A: Buscar en la propiedad top-level 'clinic' (ej: "San Felipe")
                 const topLevelMatch = normalizeText(d.clinic || '').includes(filterClinic);
                 
-                // Opción B: Buscar dentro del array 'clinics' -> 'clinicName'
                 const arrayMatch = d.clinics?.some(c => 
                     normalizeText(c.clinicName || '').includes(filterClinic)
                 );
@@ -267,8 +246,6 @@ export function SearchSection({
                 if (!topLevelMatch && !arrayMatch) return false;
             }
 
-            // 4. Filtro por Ubicación (Distrito)
-            // Tu objeto usa 'clinics' -> 'district'
             if (branch !== 'none') {
                  const filterDistrict = normalizeText(branch);
                  
@@ -279,13 +256,8 @@ export function SearchSection({
                  if (!hasDistrict) return false;
             }
 
-            // 5. Filtro por Tipo de Atención
-            // Nota: En tu imagen no veo 'tipo_atencion', asumo que podría ser 'availability' o similar,
-            // pero si mantienes la lógica anterior, asegúrate que la propiedad exista.
             if (attentionType !== 'all') {
                  const filterType = normalizeText(attentionType);
-                 // Verifica si tu objeto tiene 'attentionType' o 'mode'. 
-                 // Si no existe en el objeto de la foto, esto siempre devolverá false si se usa.
                  const docType = normalizeText(d.tipo_atencion || d.attentionType || ''); 
                  if (!docType.includes(filterType)) return false;
             }
@@ -302,7 +274,6 @@ export function SearchSection({
         });
 
     } else {
-        // --- MODO BÚSQUEDA NORMAL (BACKEND) ---
         const filtersForApi: SearchFilters = {
             nombre_doctor: doctorName || undefined,
             especialidad_id: selectedSpecialtyObj?.id,
@@ -328,16 +299,14 @@ export function SearchSection({
     setAttentionType('all');
     setHasSearched(false);
     
-    // Si estamos en modo IA, "Limpiar" significa volver a mostrar TODOS los resultados originales de la IA
     if (aiInterpretation && originalAiDoctorsRef.current.length > 0) {
         onAISearch({
             analysis: aiInterpretation,
-            doctors: originalAiDoctorsRef.current, // Restauramos el backup completo
+            doctors: originalAiDoctorsRef.current, 
             medicines: aiMedicines
         });
-        setHasSearched(true); // Mantenemos estado de búsqueda activo
+        setHasSearched(true); 
     } else {
-        // Si es búsqueda manual, limpiamos todo llamando al API vacio
         onSearch({});
     }
   };
@@ -349,7 +318,6 @@ export function SearchSection({
   return (
     <div>
       <AISearchBar onSearch={onAISearch} />
-      {/* ... RESTO DEL JSX ES IGUAL AL ANTERIOR ... */}
       <div ref={scrollAnchorRef} className="scroll-mt-32 w-full h-1"></div>
       {aiInterpretation && <LeoResponse interpretation={aiInterpretation} />}
 
@@ -362,7 +330,7 @@ export function SearchSection({
           }`}>
             <div className="text-center mb-8">
               <h2 className="text-slate-900 mb-2">
-                  {aiInterpretation ? 'Filtrar Resultados IA' : 'Búsqueda con Filtros'}
+                  {aiInterpretation ? 'Filtrar Resultados' : 'Búsqueda con Filtros'}
               </h2>
               <p className="text-slate-600">
                   {aiInterpretation 
@@ -371,9 +339,6 @@ export function SearchSection({
               </p>
             </div>
 
-            {/* ... INPUTS (Nombre, Especialidad Autocomplete, Clinica, etc.) ... 
-                (Todo el contenido del formulario es idéntico a tu versión anterior)
-            */}
              <div className={`grid gap-4 mb-4 ${filterFormInnerGridClasses}`}>
                <div className="space-y-2">
                 <label className="text-sm text-slate-700 flex items-center gap-2">
@@ -543,19 +508,33 @@ export function SearchSection({
           </div>
         </div>
 
-        {/* RESULTADOS (Sin cambios) */}
+        {/* RESULTADOS */}
         {hasSearched && (
           <div className="lg:col-span-2 space-y-6"> 
             <div className="mb-16 md:mb-0">
-              <div className="mb-6">
-                <h3 className="text-slate-900 mb-2">Resultados de la búsqueda</h3>
-                <p className="text-slate-600">
-                  {doctors.length === 0 
-                    ? 'No se encontraron doctores con los filtros seleccionados'
-                    : `Se encontraron ${doctors.length} ${doctors.length === 1 ? 'doctor' : 'doctores'}`
-                  }
-                </p>
+              
+              <div className="mb-6 flex flex-row justify-between items-end">
+                <div>
+                  <h3 className="text-slate-900 mb-2">Resultados de la búsqueda</h3>
+                  <p className="text-slate-600">
+                    {doctors.length === 0 
+                      ? 'No se encontraron doctores con los filtros seleccionados'
+                      : `Se encontraron ${doctors.length} ${doctors.length === 1 ? 'doctor' : 'doctores'}`
+                    }
+                  </p>
+                </div>
+
+                {doctors.length > 0 && (
+                  <Button 
+                    variant="outline" 
+                    className="gap-2 text-slate-700 border-slate-300 hover:bg-slate-50"
+                  >
+                    <Map className="w-4 h-4" />
+                    <span>Ver Mapa</span>
+                  </Button>
+                )}
               </div>
+
               {doctors.length > 0 ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                   {doctors.map(doctor => (

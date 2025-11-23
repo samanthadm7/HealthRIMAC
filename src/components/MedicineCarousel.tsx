@@ -1,6 +1,5 @@
 import { Medicine } from '../data/medicines';
 import MedicineCard from './MedicineCard';
-// Importamos los componentes de carrusel que YA tienes en tu proyecto
 import {
   Carousel,
   CarouselContent,
@@ -22,9 +21,8 @@ export const MedicineCarousel = ({ medicines, specialty }: MedicineCarouselProps
 
   return (
     <div className="w-full py-10 bg-gray-50 rounded-2xl">
-      <div className="container mx-auto px-8 md:px-12"> {/* Padding extra para las flechas */}
+      <div className="container mx-auto px-8 md:px-12"> 
         
-        {/* Encabezado: Título a la izquierda, controles a la derecha */}
         <div className="flex items-center justify-between mb-6">
           <div>
             <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
@@ -35,7 +33,6 @@ export const MedicineCarousel = ({ medicines, specialty }: MedicineCarouselProps
               Los más consultados por nuestros especialistas
             </p>
           </div>
-          {/* Enlace "Ver todos" discreto */}
           <a href="#" className="text-sm font-medium text-red-600 hover:underline hidden sm:block">
             Ver todos &rarr;
           </a>
@@ -50,8 +47,7 @@ export const MedicineCarousel = ({ medicines, specialty }: MedicineCarouselProps
           className="w-full relative group"
         >
           <CarouselContent className="-ml-4">
-            {/* 🚀 SOLUCIÓN: Usamos el índice (i) como fallback para la clave si medicine.id no existe */}
-            {medicines.map((medicine, i) => (
+                        {medicines.map((medicine, i) => (
               <CarouselItem key={medicine.id || `med-${i}`} className="pl-4 basis-1/2 md:basis-1/3 lg:basis-1/4">
                 <div className="h-full p-1">
                   <MedicineCard medicine={medicine} />
@@ -60,7 +56,7 @@ export const MedicineCarousel = ({ medicines, specialty }: MedicineCarouselProps
             ))}
           </CarouselContent>
           
-          {/* Flechas de Navegación (Estilo flotante y moderno) */}
+          {/* Flechas de Navegación */}
           <CarouselPrevious className="absolute -left-4 md:-left-10 top-1/2 -translate-y-1/2 h-10 w-10 border-gray-300 text-gray-600 hover:bg-red-600 hover:text-white hover:border-red-600 transition-colors bg-white shadow-md" />
           <CarouselNext className="absolute -right-4 md:-right-10 top-1/2 -translate-y-1/2 h-10 w-10 border-gray-300 text-gray-600 hover:bg-red-600 hover:text-white hover:border-red-600 transition-colors bg-white shadow-md" />
         </Carousel>

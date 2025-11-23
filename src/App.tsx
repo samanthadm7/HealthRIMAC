@@ -2,20 +2,17 @@ import { useState, useEffect } from 'react';
 import { Header } from './components/Header';
 import { SearchSection } from './components/SearchSection';
 import { DoctorDetail } from './components/DoctorDetail';
-// Importamos la nueva interfaz desde el mapper (o desde types si la moviste)
 import { mapApiDataToDoctors, ApiDoctorRow } from './utils/doctorMapper'; 
 import type { Doctor, SearchFilters, AISearchResult } from './types/doctor';
 import type { Medicine } from './data/medicines'; 
 
 export type { Doctor };
 
-// Actualizamos la interfaz de la respuesta Semántica
-// Asumimos que 'data' ahora devuelve el nuevo formato ApiDoctorRow
 interface SemanticApiResponse {
   tipo: string;
   especialidades: string[];
   filtros_busqueda: any;
-  data: ApiDoctorRow[]; // <--- USAMOS LA NUEVA INTERFAZ
+  data: ApiDoctorRow[]; 
   medicamentos: any[]; 
   sintoma_detectado?: string[]; 
 }
@@ -101,12 +98,22 @@ const handleSemanticSearch = async (input: any) => {
       if (result.medicamentos && Array.isArray(result.medicamentos) && result.medicamentos.length > 0) {
         const mappedMedicines: Medicine[] = result.medicamentos.map((m: any, index: number) => {
           return {
-            id: m.id || String(index + 9999), 
-            name: m.name_product || m.name_product || 'Medicamento sugerido',
-            presentation: m.presentacion || m.descripcion || 'Sin presentación', 
+            id: m.id || String(index + 9999),
+            
+            nombre: m.name_product || m.nombre || 'Medicamento sugerido', 
+            name: m.name_product || m.nombre || 'Medicamento sugerido',
+            
+            imagen: m.url_image || m.url_imagen || 'https://placehold.co/300x300/eef2f6/333333?text=Medicamento',
+            image: m.url_image || m.url_imagen || 'https://placehold.co/300x300/eef2f6/333333?text=Medicamento',
+            
+            precio: typeof m.precio === 'number' ? m.precio : 0,
             price: typeof m.precio === 'number' ? m.precio : 0,
-            image: m.url_imagen || 'https://placehold.co/300x300/eef2f6/333333?text=Medicamento', 
-            purchaseUrl: m.url_compra || '#' 
+
+            link: m.url_compra || '#',
+            purchaseUrl: m.url_compra || '#',
+
+            presentacion: m.presentacion || m.descripcion || 'Sin presentación',
+            presentation: m.presentacion || m.descripcion || 'Sin presentación'
           };
         });
         setAiMedicines(mappedMedicines);

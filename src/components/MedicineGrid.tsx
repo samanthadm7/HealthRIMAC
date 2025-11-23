@@ -27,13 +27,11 @@ export const MedicineGrid = ({ medicines, specialty }: MedicineGridProps) => {
               Los más consultados por nuestros especialistas
             </p>
           </div>
-          {/* Enlace "Ver todos" discreto */}
           <a href="#" className="text-sm font-medium text-red-600 hover:underline hidden sm:block">
             Ver todos &rarr;
           </a>
         </div>
 
-        {/* Grid de medicamentos */}
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
           {medicines.map((medicine) => (
             <MedicineCard key={medicine.id} medicine={medicine} />

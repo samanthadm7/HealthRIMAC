@@ -55,7 +55,6 @@ export function DoctorCard({ doctor, onClick }: DoctorCardProps) {
     >
       <div onClick={onClick} className="cursor-pointer">
         <CardContent className="p-0"> 
-          {/* Photo Section */}
           <div className="relative h-48 bg-slate-100 overflow-hidden">
             <img 
               src={doctor.photo} 
@@ -73,7 +72,7 @@ export function DoctorCard({ doctor, onClick }: DoctorCardProps) {
           </div>
 
           {/* Content Section (Cuerpo) */}
-          <div className="px-6 py-4"> {/* CORRECCIÓN: Usamos px-6 para asegurar el margen lateral */}
+          <div className="px-6 py-4"> 
             {/* Header */}
             <div className="mb-2">
               <h3 className="text-slate-900 group-hover:text-red-600 transition-colors line-clamp-1 mb-1 font-semibold text-lg">
@@ -127,7 +126,7 @@ export function DoctorCard({ doctor, onClick }: DoctorCardProps) {
               )}
             </div>
 
-            {/* Schedule (Horario en el cuerpo) */}
+            {/* Horario*/}
             <div className="flex items-center gap-2 text-sm text-slate-600">
               <Clock className="w-4 h-4 text-slate-400" />
               <span className="line-clamp-1 font-medium">{doctor.schedules[0] || "Horario a confirmar"}</span>

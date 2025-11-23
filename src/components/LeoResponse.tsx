@@ -29,9 +29,8 @@ export function LeoResponse({ interpretation }: LeoResponseProps) {
     }
   }, [isThinking, displayImage]);
 
-  // Función de resaltado de texto
   const renderStyledText = (text: string) => {
-    // Expresión regular ajustada para capturar el síntoma completo (ya lo corregimos en un paso anterior)
+    
     const matchFull = text.match(/Estos especialistas en (.+) te pueden ayudar con tu (.+)(\.|)(\s|$)/i);
     if (matchFull) {
       return (
@@ -54,7 +53,7 @@ export function LeoResponse({ interpretation }: LeoResponseProps) {
   return (
     <div className="w-full flex justify-center mb-12 px-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
       
-      {/* --- AGREGAMOS ESTA ANIMACIÓN CSS --- */}
+      {/* --- ANIMACIÓN CSS --- */}
       <style>{`
         @keyframes flotar {
           0% { transform: translateY(0px); }
@@ -66,12 +65,9 @@ export function LeoResponse({ interpretation }: LeoResponseProps) {
         }
       `}</style>
 
-      {/* 🟢 SOLUCIÓN FINAL: Grid de dos columnas que fuerza la alineación lateral. */}
-      {/* items-end: Alinea el avatar y el globo a la parte inferior. */}
       <div className="grid grid-cols-[100px_1fr] max-w-xl gap-4 items-end"> 
         
         {/* COLUMNA 1: LEÓN (Avatar) */}
-        {/* Este div ocupa exactamente la primera columna de 100px. */}
         <div className={`relative z-20 flex items-end justify-center transition-all ${isThinking ? 'animacion-flotar' : ''}`}> 
           <img 
             src={displayImage} 
@@ -82,11 +78,9 @@ export function LeoResponse({ interpretation }: LeoResponseProps) {
         </div>
         
         {/* COLUMNA 2: GLOBO (Texto) */}
-        {/* Este div ocupa exactamente la segunda columna (1fr). */}
         <div className="relative"> 
           
           {/* ETIQUETA */}
-          {/* Se mantiene la etiqueta dentro de la Columna 2, pero fuera del globo. */}
           <div className="flex items-center gap-2 mb-1">
             <span className="text-red-600 font-black text-xs tracking-wider uppercase">Leo</span>
             <span className={`text-slate-400 text-[10px] font-bold bg-slate-100 px-2 py-0.5 rounded-full uppercase transition-colors duration-300 ${isThinking ? 'text-red-400 bg-red-50' : ''}`}>
@@ -97,9 +91,7 @@ export function LeoResponse({ interpretation }: LeoResponseProps) {
           {/* GLOBO DE DIÁLOGO */}
           <div className="relative drop-shadow-xl filter">
             
-            {/* PICO */}
             <div 
-              // La posición es relativa a la Columna 2 (el globo).
               className="absolute top-8 -left-4 w-8 h-8 bg-white transform rotate-45 transition-all duration-500"
               style={{ borderRadius: '0 0 0 4px' }}
             ></div>
