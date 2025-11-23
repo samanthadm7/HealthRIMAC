@@ -50,7 +50,7 @@ export function mapApiDataToDoctors(rows: ApiDoctorRow[]): Doctor[] {
         specialty: row.especialidad,
         photo: row.url_foto_doctor || 'https://via.placeholder.com/150?text=Doctor',
         rating: row.calificacion || 5.0,
-        yearsExperience: 10, // Dato no disponible, mock default
+        yearsExperience: 10, 
         
         clinics: [],
         schedules: [],
@@ -95,9 +95,9 @@ export function mapApiDataToDoctors(rows: ApiDoctorRow[]): Doctor[] {
         address: row.direccion_sede || `${row.sede}, ${row.distrito}`,
         attentionType: row.tipo_atencion,
         logoUrl: row.url_logo_clinica,
-        price: 0, // Precio no viene en este JSON
+        price: 0,
         nextAvailable: row.dia_atencion ? `${row.dia_atencion} ${row.hora_inicio?.substring(0,5)}` : 'Consultar',
-        bookingUrl: row.url_agenda_cita // Guardamos la url de cita si la necesitas en el futuro
+        bookingUrl: row.url_agenda_cita 
       };
       
       doctor.clinics.push(newClinic);

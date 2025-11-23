@@ -37,22 +37,16 @@ export default function App() {
   }, []);
 
   // --- BÚSQUEDA SEMÁNTICA (IA / LEO) ---
-  // Modificamos para aceptar 'input' que puede ser el texto de búsqueda O el objeto de resultados filtrados
-  const handleSemanticSearch = async (input: any) => {
+const handleSemanticSearch = async (input: any) => {
     
-    // 1. LÓGICA NUEVA: DETECCION DE FILTRO LOCAL
-    // Si 'input' es un objeto y tiene la propiedad 'doctors', significa que viene del filtro local
-    // en SearchSection. Solo actualizamos el estado visual y salimos.
+    // 1. CASO FILTRO LOCAL
     if (typeof input === 'object' && input.doctors) {
       setFilteredDoctors(input.doctors);
-      // Mantenemos la interpretación y medicamentos si vienen en el objeto
       if (input.analysis) setAiInterpretation(input.analysis);
       if (input.medicines) setAiMedicines(input.medicines);
-      return; // <--- IMPORTANTE: Salimos aquí para NO hacer fetch a la API
+      return;
     }
 
-    // 2. LÓGICA ORIGINAL: BÚSQUEDA EN API
-    // Si no entró en el if anterior, asume que 'input' es el texto (string) de búsqueda
     const queryText = input as string;
 
     setIsLoading(true);
@@ -73,7 +67,25 @@ export default function App() {
 
       const result: SemanticApiResponse = await response.json();
       
-      // Lógica de mensaje
+      const areFiltersEmpty = !result.filtros_busqueda || 
+                            (typeof result.filtros_busqueda === 'object' && 
+                             Object.keys(result.filtros_busqueda).length === 0);
+      
+      const isTipoEmptyOrNullString = !result.tipo || result.tipo === "null"; 
+
+      const isResponseNull = isTipoEmptyOrNullString && 
+                             !result.sintoma_detectado?.length && 
+                             !result.especialidades?.length && 
+                             areFiltersEmpty;
+      
+      if (isResponseNull) {
+          setAiInterpretation('No entendí tu consulta, prueba otra cosa');
+          setFilteredDoctors([]);
+          setAiMedicines([]);
+          setSelectedSpecialty('Resultados');
+          return; 
+      }
+      
       const especialidadesStr = result.especialidades?.join(' o '); 
       const sintomaStr = result.sintoma_detectado?.[0]; 
 
@@ -91,7 +103,7 @@ export default function App() {
           return {
             id: m.id || String(index + 9999), 
             name: m.name_product || m.name_product || 'Medicamento sugerido',
-            presentation: m.presentacion || m.descripcion || 'Sin presentación',
+            presentation: m.presentacion || m.descripcion || 'Sin presentación', 
             price: typeof m.precio === 'number' ? m.precio : 0,
             image: m.url_imagen || 'https://placehold.co/300x300/eef2f6/333333?text=Medicamento', 
             purchaseUrl: m.url_compra || '#' 
@@ -101,15 +113,12 @@ export default function App() {
       } else {
         setAiMedicines([]);
       }
-
-      // Especialidad y Doctores
       if (result.especialidades && result.especialidades.length > 0) {
         setSelectedSpecialty(result.especialidades[0]); 
       } else {
         setSelectedSpecialty('Resultados');
       }
 
-      // Mapeo de doctores usando la nueva estructura
       if (result.data && Array.isArray(result.data)) {
         const processedDoctors = mapApiDataToDoctors(result.data);
         setFilteredDoctors(processedDoctors);
@@ -128,6 +137,7 @@ export default function App() {
       setIsLoading(false);
     }
   };
+
   // --- BÚSQUEDA MANUAL ---
   const handleManualSearch = async (filters: SearchFilters, interpretation?: string) => {
     if (interpretation) setAiInterpretation(interpretation);
@@ -144,7 +154,6 @@ export default function App() {
       const requestBody: Record<string, any> = {};
 
       Object.keys(filters).forEach(key => {
-        // @ts-ignore
         const value = filters[key];
         if (value !== undefined && value !== null && value !== '' && value !== 'none' && key !== 'specialtyName') {
           requestBody[key] = value;
@@ -159,7 +168,6 @@ export default function App() {
 
       if (!response.ok) throw new Error(`Error en la búsqueda: ${response.status}`);
 
-      // Usamos el tipo ApiDoctorRow nuevo aquí también
       const rawData: ApiDoctorRow[] = await response.json();
       const processedDoctors = mapApiDataToDoctors(rawData);
 

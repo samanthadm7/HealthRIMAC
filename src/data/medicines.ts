@@ -1,8 +1,6 @@
 
-// URL de la nueva API (usando la IP proporcionada por el usuario)
 const MEDICINE_API_URL = 'https://motor-busqueda-rfcjnvenka-uk.a.run.app/search/busqueda_medicamentos';
 
-// Interfaz para el Frontend (actualizada con purchaseUrl)
 export interface Medicine {
   id: string;
   name: string;
@@ -14,7 +12,6 @@ export interface Medicine {
 }
 
 
-// Interfaz para la respuesta RAW del API
 interface ApiMedicineRow {
   categoria:string;
   sub_categoria:string;
@@ -29,16 +26,12 @@ interface ApiMedicineRow {
   id_especialidad: number;
 }
 
-/**
- * Mapea la respuesta del API de medicamentos al formato de Frontend (Medicine).
- * @param apiData Los datos crudos del API.
- * @returns Los datos mapeados para el frontend.
- */
+
 function mapApiToMedicine(apiData: ApiMedicineRow[]): Medicine[] {
   if (!apiData) return [];
   
   return apiData.map(item => ({
-    id: String(null), // Convertir ID (number) a string
+    id: String(null), 
     name: item.name_product,
     presentation: item.presentacion,
     price: item.precio,
@@ -48,21 +41,12 @@ function mapApiToMedicine(apiData: ApiMedicineRow[]): Medicine[] {
   }));
 }
 
-
-/**
- * Busca medicamentos recomendados de una especialidad específica usando el API.
- * Si specialtyId es undefined (carga inicial), envía la especialidad como null
- * para obtener medicamentos generales.
- * @param specialtyId El ID numérico de la especialidad (opcional).
- * @returns Una promesa que resuelve a un array de medicamentos.
- */
 export async function getMedicinesBySpecialty(specialtyId?: number): Promise<Medicine[]> {
-  // Envía el ID directo (number) o null si es undefined (carga inicial)
+
   const idToSend = specialtyId ?? null; 
   
   try {
     const payload = {
-      // Usamos idToSend, que puede ser ID (number) o null
       especialidad_ids: idToSend, 
     };
 
@@ -77,7 +61,6 @@ export async function getMedicinesBySpecialty(specialtyId?: number): Promise<Med
 
     if (!response.ok) {
       console.error(`Error fetching medicines: ${response.status} ${response.statusText}`);
-      // Fallback a array vacío en caso de error HTTP
       return [];
     }
 
@@ -86,7 +69,6 @@ export async function getMedicinesBySpecialty(specialtyId?: number): Promise<Med
 
   } catch (error) {
     console.error("Fetch error for medicines:", error);
-    // Fallback a array vacío en caso de error de red
     return [];
   }
 }
