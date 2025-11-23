@@ -2,17 +2,20 @@ import { useState, useEffect } from 'react';
 import { Header } from './components/Header';
 import { SearchSection } from './components/SearchSection';
 import { DoctorDetail } from './components/DoctorDetail';
-import { mapApiDataToDoctors } from './utils/doctorMapper'; 
-import type { Doctor, SearchFilters, AISearchResult, ApiDoctorRow } from './types/doctor';
+// Importamos la nueva interfaz desde el mapper (o desde types si la moviste)
+import { mapApiDataToDoctors, ApiDoctorRow } from './utils/doctorMapper'; 
+import type { Doctor, SearchFilters, AISearchResult } from './types/doctor';
 import type { Medicine } from './data/medicines'; 
 
 export type { Doctor };
 
+// Actualizamos la interfaz de la respuesta Semántica
+// Asumimos que 'data' ahora devuelve el nuevo formato ApiDoctorRow
 interface SemanticApiResponse {
   tipo: string;
   especialidades: string[];
   filtros_busqueda: any;
-  data: ApiDoctorRow[];
+  data: ApiDoctorRow[]; // <--- USAMOS LA NUEVA INTERFAZ
   medicamentos: any[]; 
   sintoma_detectado?: string[]; 
 }
@@ -34,17 +37,31 @@ export default function App() {
   }, []);
 
   // --- BÚSQUEDA SEMÁNTICA (IA / LEO) ---
-  const handleSemanticSearch = async (queryText: string) => {
+  // Modificamos para aceptar 'input' que puede ser el texto de búsqueda O el objeto de resultados filtrados
+  const handleSemanticSearch = async (input: any) => {
+    
+    // 1. LÓGICA NUEVA: DETECCION DE FILTRO LOCAL
+    // Si 'input' es un objeto y tiene la propiedad 'doctors', significa que viene del filtro local
+    // en SearchSection. Solo actualizamos el estado visual y salimos.
+    if (typeof input === 'object' && input.doctors) {
+      setFilteredDoctors(input.doctors);
+      // Mantenemos la interpretación y medicamentos si vienen en el objeto
+      if (input.analysis) setAiInterpretation(input.analysis);
+      if (input.medicines) setAiMedicines(input.medicines);
+      return; // <--- IMPORTANTE: Salimos aquí para NO hacer fetch a la API
+    }
+
+    // 2. LÓGICA ORIGINAL: BÚSQUEDA EN API
+    // Si no entró en el if anterior, asume que 'input' es el texto (string) de búsqueda
+    const queryText = input as string;
+
     setIsLoading(true);
     setAiInterpretation(`Analizando tu consulta: "${queryText}"...`);
     setSelectedSpecialty(''); 
-    setAiMedicines([]); // Reset previo
+    setAiMedicines([]); 
 
     try {
-      // CAMBIO DE IP AQUÍ
-      const url = 'http://10.160.29.147:8000/search/busqueda_semantica';
-      
-      console.log("1. [App] Enviando búsqueda:", queryText);
+      const url = 'https://motor-busqueda-rfcjnvenka-uk.a.run.app/search/busqueda_semantica';
 
       const response = await fetch(url, {
         method: 'POST',
@@ -56,11 +73,6 @@ export default function App() {
 
       const result: SemanticApiResponse = await response.json();
       
-      // --- DEBUG LOGS ---
-      console.log("2. [App] JSON Respuesta Completa:", result);
-      console.log("3. [App] Campo 'medicamentos' crudo:", result.medicamentos);
-      // ------------------
-
       // Lógica de mensaje
       const especialidadesStr = result.especialidades?.join(' o '); 
       const sintomaStr = result.sintoma_detectado?.[0]; 
@@ -77,21 +89,16 @@ export default function App() {
       if (result.medicamentos && Array.isArray(result.medicamentos) && result.medicamentos.length > 0) {
         const mappedMedicines: Medicine[] = result.medicamentos.map((m: any, index: number) => {
           return {
-            id: m.id || index + 9999,
-            name: m.nombre || m.name || 'Medicamento sugerido',
-            description: m.descripcion || m.description || 'Recomendado para tu síntoma',
+            id: m.id || String(index + 9999), 
+            name: m.name_product || m.name_product || 'Medicamento sugerido',
+            presentation: m.presentacion || m.descripcion || 'Sin presentación',
             price: typeof m.precio === 'number' ? m.precio : 0,
-            image: m.imagen || 'https://placehold.co/300x300/eef2f6/333333?text=Medicamento', 
-            brand: m.laboratorio || 'Genérico',
-            category: m.categoria || 'Venta Libre',
-            requiresPrescription: m.receta || false
+            image: m.url_imagen || 'https://placehold.co/300x300/eef2f6/333333?text=Medicamento', 
+            purchaseUrl: m.url_compra || '#' 
           };
         });
-        
-        console.log("4. [App] Medicamentos Mapeados:", mappedMedicines);
         setAiMedicines(mappedMedicines);
       } else {
-        console.warn("4. [App] Array de medicamentos vacío o nulo.");
         setAiMedicines([]);
       }
 
@@ -102,6 +109,7 @@ export default function App() {
         setSelectedSpecialty('Resultados');
       }
 
+      // Mapeo de doctores usando la nueva estructura
       if (result.data && Array.isArray(result.data)) {
         const processedDoctors = mapApiDataToDoctors(result.data);
         setFilteredDoctors(processedDoctors);
@@ -112,7 +120,7 @@ export default function App() {
       setSelectedDoctor(null);
 
     } catch (error) {
-      console.error("[App] Error Crítico:", error);
+      console.error(error);
       setAiInterpretation('Lo siento, hubo un problema. Intenta usar los filtros manuales.');
       setFilteredDoctors([]);
       setAiMedicines([]);
@@ -120,7 +128,6 @@ export default function App() {
       setIsLoading(false);
     }
   };
-
   // --- BÚSQUEDA MANUAL ---
   const handleManualSearch = async (filters: SearchFilters, interpretation?: string) => {
     if (interpretation) setAiInterpretation(interpretation);
@@ -128,14 +135,12 @@ export default function App() {
 
     if (filters.specialtyName) setSelectedSpecialty(filters.specialtyName);
 
-    console.log("[App] Búsqueda manual iniciada, limpiando medicamentos IA");
     setAiMedicines([]); 
     
     setIsLoading(true);
 
     try {
-      // CAMBIO DE IP AQUÍ
-      const url = 'http://10.160.29.147:8000/search/busqueda';
+      const url = 'https://motor-busqueda-rfcjnvenka-uk.a.run.app/search/busqueda';
       const requestBody: Record<string, any> = {};
 
       Object.keys(filters).forEach(key => {
@@ -154,6 +159,7 @@ export default function App() {
 
       if (!response.ok) throw new Error(`Error en la búsqueda: ${response.status}`);
 
+      // Usamos el tipo ApiDoctorRow nuevo aquí también
       const rawData: ApiDoctorRow[] = await response.json();
       const processedDoctors = mapApiDataToDoctors(rawData);
 
@@ -161,7 +167,7 @@ export default function App() {
       setSelectedDoctor(null);
 
     } catch (error) {
-      console.error("Error búsqueda manual:", error);
+      console.error(error);
       setFilteredDoctors([]);
     } finally {
       setIsLoading(false);

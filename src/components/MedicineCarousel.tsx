@@ -50,12 +50,9 @@ export const MedicineCarousel = ({ medicines, specialty }: MedicineCarouselProps
           className="w-full relative group"
         >
           <CarouselContent className="-ml-4">
-            {medicines.map((medicine) => (
-              // Aquí está el truco visual:
-              // basis-1/2 (2 ítems en móvil)
-              // basis-1/3 (3 ítems en tablet)
-              // basis-1/4 (4 ítems en PC - igual que tu imagen de referencia)
-              <CarouselItem key={medicine.id} className="pl-4 basis-1/2 md:basis-1/3 lg:basis-1/4">
+            {/* 🚀 SOLUCIÓN: Usamos el índice (i) como fallback para la clave si medicine.id no existe */}
+            {medicines.map((medicine, i) => (
+              <CarouselItem key={medicine.id || `med-${i}`} className="pl-4 basis-1/2 md:basis-1/3 lg:basis-1/4">
                 <div className="h-full p-1">
                   <MedicineCard medicine={medicine} />
                 </div>

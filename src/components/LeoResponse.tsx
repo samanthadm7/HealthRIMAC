@@ -31,11 +31,12 @@ export function LeoResponse({ interpretation }: LeoResponseProps) {
 
   // Función de resaltado de texto
   const renderStyledText = (text: string) => {
-    const matchFull = text.match(/Estos especialistas en (.+) te pueden ayudar con tu (.+?)(\.|)(\s|$)/i);
+    // Expresión regular ajustada para capturar el síntoma completo (ya lo corregimos en un paso anterior)
+    const matchFull = text.match(/Estos especialistas en (.+) te pueden ayudar con tu (.+)(\.|)(\s|$)/i);
     if (matchFull) {
       return (
         <span>
-          Estos especialistas en <span className="text-red-600 font-black">{matchFull[1]}</span> te pueden ayudar con tu <span className="text-red-600 font-black">{matchFull[2]}</span>.
+          Estos especialistas en <span className="text-red-600 font-black">{matchFull[1]}</span> te pueden ayudar con tu <span className="text-red-600 font-black">{matchFull[2]}</span>
         </span>
       );
     }
@@ -65,47 +66,48 @@ export function LeoResponse({ interpretation }: LeoResponseProps) {
         }
       `}</style>
 
-      {/* Grid Fijo para estabilidad */}
-      <div className="grid grid-cols-[250px_1fr] w-[750px] max-w-full gap-0">
+      {/* 🟢 SOLUCIÓN FINAL: Grid de dos columnas que fuerza la alineación lateral. */}
+      {/* items-end: Alinea el avatar y el globo a la parte inferior. */}
+      <div className="grid grid-cols-[100px_1fr] max-w-xl gap-4 items-end"> 
         
-        {/* COLUMNA 1: LEÓN */}
-        {/* APLICAMOS LA CLASE 'animacion-flotar' SI ESTÁ PENSANDO */}
+        {/* COLUMNA 1: LEÓN (Avatar) */}
+        {/* Este div ocupa exactamente la primera columna de 100px. */}
         <div className={`relative z-20 flex items-end justify-center transition-all ${isThinking ? 'animacion-flotar' : ''}`}> 
           <img 
             src={displayImage} 
             alt="Leo AI" 
-            style={{ width: '250px' }} 
-            // Quitamos el animate-pulse de la imagen para que no parpadee, solo flote
+            style={{ width: '100px' }} 
             className={`h-auto object-contain drop-shadow-2xl transition-opacity duration-300 ${isAnimating ? 'opacity-80' : 'opacity-100'}`}
           />
         </div>
         
-        {/* COLUMNA 2: GLOBO */}
-        {/* TAMBIÉN APLICAMOS 'animacion-flotar' AQUÍ CON UN PEQUEÑO RETRASO (opcional) O SINCRONIZADO */}
-        <div className={`relative mt-20 -ml-6 ${isThinking ? 'animacion-flotar' : ''}`}>
+        {/* COLUMNA 2: GLOBO (Texto) */}
+        {/* Este div ocupa exactamente la segunda columna (1fr). */}
+        <div className="relative"> 
           
           {/* ETIQUETA */}
-          <div className="flex items-center gap-2 mb-1 ml-10">
+          {/* Se mantiene la etiqueta dentro de la Columna 2, pero fuera del globo. */}
+          <div className="flex items-center gap-2 mb-1">
             <span className="text-red-600 font-black text-xs tracking-wider uppercase">Leo</span>
             <span className={`text-slate-400 text-[10px] font-bold bg-slate-100 px-2 py-0.5 rounded-full uppercase transition-colors duration-300 ${isThinking ? 'text-red-400 bg-red-50' : ''}`}>
               {isThinking ? 'Procesando...' : 'Asistente'}
             </span>
           </div>
 
-          {/* GLOBO */}
+          {/* GLOBO DE DIÁLOGO */}
           <div className="relative drop-shadow-xl filter">
             
             {/* PICO */}
             <div 
+              // La posición es relativa a la Columna 2 (el globo).
               className="absolute top-8 -left-4 w-8 h-8 bg-white transform rotate-45 transition-all duration-500"
               style={{ borderRadius: '0 0 0 4px' }}
             ></div>
 
             {/* CAJA DE TEXTO */}
             <div 
-              className={`relative bg-white p-6 z-10 max-w-[420px] min-h-[100px] flex items-center transition-all duration-500 ease-out ${isThinking ? 'rounded-[2.5rem] w-[200px]' : 'rounded-[2rem] rounded-tl-none w-auto'}`}
+              className={`relative bg-white p-6 z-10 max-w-full min-h-[100px] flex items-center transition-all duration-500 ease-out ${isThinking ? 'rounded-[2.5rem] w-full md:w-auto' : 'rounded-[2rem] rounded-tl-none w-auto'}`}
             >
-              {/* Texto con efecto de pulso suave en la opacidad si está pensando */}
               <p className={`text-slate-700 text-lg font-medium leading-relaxed ${isThinking ? 'animate-pulse' : ''}`}>
                 {renderStyledText(interpretation)}
               </p>

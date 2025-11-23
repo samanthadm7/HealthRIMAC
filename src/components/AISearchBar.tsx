@@ -1,26 +1,20 @@
 import { useState } from 'react';
-import { Search, X } from 'lucide-react'; // Sparkles se puede quitar si no se usa
+import { Search, X } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
-// import { interpretSearch } ... YA NO ES NECESARIO
-// import type { AISearchResult } ... YA NO ES NECESARIO (usaremos string)
 
 import leoAvatar from '../assets/leo-avatar.png'; 
 
 interface AISearchBarProps {
-  // CAMBIO: Ahora onSearch recibe un string directo, no un objeto complejo
   onSearch: (queryText: string) => void; 
 }
 
 export function AISearchBar({ onSearch }: AISearchBarProps) {
   const [query, setQuery] = useState('');
-  // El estado isLoading local es opcional, pero mejor dejar que el App maneje la carga global
-  // para este ejemplo lo mantendremos simple para enviar la petición inmediata.
 
   const handleSearch = () => {
     if (!query.trim()) return;
     
-    // Enviamos el texto crudo al padre (App.tsx)
     onSearch(query);
   };
 
@@ -34,16 +28,17 @@ export function AISearchBar({ onSearch }: AISearchBarProps) {
     setQuery('');
   };
 
-  // Sugerencias actualizadas para probar la API semántica
   const suggestions = [
     "Me duele la cabeza",
-    "Busco un cardiólogo para hoy",
+    "Busco un cardiólogo para el jueves",
     "Necesito un pediatra",
-    "Consulta virtual con dermatólogo",
+    "Tengo un problema en la piel",
+    "Siento el ojo irritado",
+    "Tengo tos"
   ];
 
   return (
-    <div className="bg-gradient-to-br from-red-500 via-red-300 to-pink-600 rounded-2xl shadow-2xl p-6 md:p-8 mb-8 relative overflow-hidden">
+    <div className="bg-gradient-to-br from-red-500 via-red-300 to-pink-600 rounded-2xl shadow-2xl p-4 md:p-6 mb-8 relative overflow-hidden">
       {/* Patrón decorativo de fondo */}
       <div className="absolute inset-0 opacity-10">
         <div className="absolute top-0 right-0 w-64 h-64 bg-white rounded-full blur-3xl"></div>
@@ -51,13 +46,13 @@ export function AISearchBar({ onSearch }: AISearchBarProps) {
       </div>
       
       <div className="relative z-10">
-        <div className="text-center mb-8">
+        <div className="text-center mb-6"> 
           <div className="flex flex-col md:flex-row items-center justify-center gap-6 mb-4">
             
             {/* --- AVATAR LEO --- */}
             <div 
                 className="relative shrink-0 flex justify-center"
-                style={{ width: '220px', height: '240px' }} 
+                style={{ width: '150px', height: '170px' }} 
             >
                 <div 
                     className="absolute bg-black rounded-[100%] blur-md animate-shadow"
@@ -74,11 +69,11 @@ export function AISearchBar({ onSearch }: AISearchBarProps) {
             </div>
 
             {/* --- TEXTO --- */}
-            <div className="max-w-2xl mx-auto space-y-3">
-              <h2 className="text-white font-bold text-4xl md:text-5xl tracking-tight drop-shadow-md">
+            <div className="max-w-2xl mx-auto space-y-2"> 
+              <h2 className="text-white font-bold text-3xl md:text-4xl tracking-tight drop-shadow-md">
                 Hola, soy Leo ❤️‍🩹
               </h2>
-              <p className="text-white text-lg md:text-xl font-bold max-w-lg mx-auto leading-relaxed [-webkit-text-stroke:2px_white]">
+              <p className="text-white text-base md:text-lg font-bold max-w-lg mx-auto leading-relaxed [-webkit-text-stroke:1px_white]">
                 Cuéntame qué sientes o qué necesitas, y encontraré al especialista ideal para ti.
               </p>
             </div>
@@ -94,7 +89,7 @@ export function AISearchBar({ onSearch }: AISearchBarProps) {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyPress={handleKeyPress}
-                placeholder='Ej: "Me duele la cabeza"'
+                placeholder='Ej: "Me duele la cabeza" o "Busco un Nutricionista"'
                 className="pl-12 pr-12 py-6 text-lg bg-white border-0 shadow-lg focus:ring-2 focus:ring-white"
               />
               {query && (
@@ -127,8 +122,6 @@ export function AISearchBar({ onSearch }: AISearchBarProps) {
                 key={index}
                 onClick={() => {
                    setQuery(suggestion);
-                   // Opcional: Disparar búsqueda automática al hacer click
-                   // onSearch(suggestion); 
                 }}
                 className="px-4 py-2 bg-white/10 hover:bg-white/20 backdrop-blur-sm text-white rounded-full text-sm transition-all border border-white/20 hover:border-white/40"
               >

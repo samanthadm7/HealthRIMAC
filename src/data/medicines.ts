@@ -1,7 +1,6 @@
-// src/data/medicines.ts
 
 // URL de la nueva API (usando la IP proporcionada por el usuario)
-const MEDICINE_API_URL = 'http://10.160.29.147:8000/search/busqueda_medicamentos';
+const MEDICINE_API_URL = 'https://motor-busqueda-rfcjnvenka-uk.a.run.app/search/busqueda_medicamentos';
 
 // Interfaz para el Frontend (actualizada con purchaseUrl)
 export interface Medicine {
@@ -10,18 +9,24 @@ export interface Medicine {
   presentation: string;
   price: number;
   image: string;
-  purchaseUrl: string; // URL de compra
+  purchaseUrl: string;
+  category: string;
 }
+
 
 // Interfaz para la respuesta RAW del API
 interface ApiMedicineRow {
+  categoria:string;
+  sub_categoria:string;
   medicamento_id: number;
-  nombre: string;
-  precio_base: number;
-  presentacion: string;
-  url_imagen: string;
+  name_product: string;
+  esta_disponible: boolean;
+  url_image: string;
+  precio: number;
+  moneda: string;
   url_compra: string;
-  especialidad_id: number;
+  presentacion: string;
+  id_especialidad: number;
 }
 
 /**
@@ -33,12 +38,13 @@ function mapApiToMedicine(apiData: ApiMedicineRow[]): Medicine[] {
   if (!apiData) return [];
   
   return apiData.map(item => ({
-    id: String(item.medicamento_id), // Convertir ID (number) a string
-    name: item.nombre,
+    id: String(null), // Convertir ID (number) a string
+    name: item.name_product,
     presentation: item.presentacion,
-    price: item.precio_base,
-    image: item.url_imagen,
+    price: item.precio,
+    image: item.url_image,
     purchaseUrl: item.url_compra,
+    category: item.categoria,
   }));
 }
 
@@ -60,8 +66,7 @@ export async function getMedicinesBySpecialty(specialtyId?: number): Promise<Med
       especialidad_ids: idToSend, 
     };
 
-    // console.log('Payload enviado a la API de medicamentos:', payload); // LÍNEA DE DEPURACIÓN REMOVIDA
-
+  
     const response = await fetch(MEDICINE_API_URL, {
       method: 'POST',
       headers: {

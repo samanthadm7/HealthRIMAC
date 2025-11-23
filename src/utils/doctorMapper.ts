@@ -1,7 +1,32 @@
-import { ApiDoctorRow, Doctor, ClinicLocation } from '../types/doctor';
+import { Doctor, ClinicLocation } from '../types/doctor';
+
+export interface ApiDoctorRow {
+  id_clinica: number;
+  nombre_clinica: string;
+  nombre_doctor: string;
+  cmp: string;
+  rne: string | null;
+  url_foto_doctor: string;
+  especialidad: string;
+  especialidad_homologada?: string | null;
+  id_especialidad?: number | null;
+  sede: string;
+  distrito: string;
+  direccion_sede: string;
+  telefono_clinica: string;
+  dia_atencion: string | null;
+  hora_inicio: string | null;
+  hora_fin: string | null;
+  url_agenda_cita: string;
+  url_logo_clinica: string;
+  calificacion: number;
+  cmp_verificado: boolean;
+  formacion: string;
+  tipo_atencion: string;
+}
 
 export function mapApiDataToDoctors(rows: ApiDoctorRow[]): Doctor[] {
-  // Validación inicial por seguridad
+
   if (!Array.isArray(rows)) {
     console.warn('mapApiDataToDoctors recibió datos inválidos:', rows);
     return [];
@@ -10,83 +35,72 @@ export function mapApiDataToDoctors(rows: ApiDoctorRow[]): Doctor[] {
   const doctorsMap = new Map<number, Doctor>();
 
   rows.forEach((row) => {
-    // 1. CREACIÓN O RECUPERACIÓN DEL DOCTOR
-    if (!doctorsMap.has(row.medico_id)) {
-      doctorsMap.set(row.medico_id, {
-        // Identificadores
-        id: row.medico_id,
+    const doctorId = parseInt(row.cmp, 10) || Math.random(); 
+
+    if (!doctorsMap.has(doctorId)) {
+
+
+      doctorsMap.set(doctorId, {
+        id: doctorId,
         name: row.nombre_doctor,
-        cmp: row.cmp_numero,
-        verified: row.validado_cmp,
+        cmp: row.cmp,
+        rne: row.rne || undefined, 
+        verified: row.cmp_verificado,
         
-        // Detalles Visuales
-        specialty: row.nombre_especialidad,
-        photo: row.url_imagen || 'https://via.placeholder.com/150?text=Doctor', // Placeholder si falla la imagen
-        rating: row.calificacion || 5.0, // Default a 5 si viene null
-        reviews: 12, // Mock data: número de reseñas
-        yearsExperience: 8, // Mock data: experiencia
+        specialty: row.especialidad,
+        photo: row.url_foto_doctor || 'https://via.placeholder.com/150?text=Doctor',
+        rating: row.calificacion || 5.0,
+        yearsExperience: 10, // Dato no disponible, mock default
         
-        // Arrays vacíos para llenar dinámicamente
         clinics: [],
         schedules: [],
-        education: [], 
-        languages: ['Español', 'Inglés'], // Mock data
+        education: row.formacion, 
         specializations: [],
         sources: [],
         
-        // Textos generados
-        bio: `El Dr. ${row.nombre_doctor} es especialista en ${row.nombre_especialidad}, comprometido con la salud de sus pacientes.`,
-        description: `Especialista en ${row.nombre_especialidad}`, // Campo duplicado por compatibilidad UI
+        bio: `${row.nombre_doctor} es especialista en ${row.especialidad}.`,
+        description: `Especialista en ${row.especialidad}`,
         
-        // Disponibilidad
-        availability: 'available',
+        availability: (row.dia_atencion) ? 'available' : 'limited',
         
-        // Campos Legacy (para componentes antiguos)
         clinic: row.nombre_clinica,
-        address: row.distrito
+        address: row.distrito,
+        bookingUrl: row.url_agenda_cita
       });
     }
 
-    const doctor = doctorsMap.get(row.medico_id)!;
+    const doctor = doctorsMap.get(doctorId)!;
 
-    // 2. FUSIONAR ESPECIALIDADES
-    // Evitamos duplicar texto. Ej: Si ya dice "Cardiología", no agregamos "Cardiología" de nuevo.
-    if (!doctor.specialty.includes(row.nombre_especialidad)) {
-      doctor.specialty += `, ${row.nombre_especialidad}`;
+    if (row.dia_atencion && row.hora_inicio && row.hora_fin) {
+      const horarioLegible = `${row.dia_atencion} ${row.hora_inicio.substring(0, 5)} - ${row.hora_fin.substring(0, 5)}`;
+      if (!doctor.schedules.includes(horarioLegible)) {
+        doctor.schedules.push(horarioLegible);
+      }
+    } else if (doctor.schedules.length === 0) {
+       doctor.schedules.push("Horarios a confirmar");
     }
 
-    // 3. AGREGAR HORARIOS (Formato "Lunes 08:00 - 12:00")
-    const horarioLegible = `${row.dia} ${row.hora_inicio.substring(0, 5)} - ${row.hora_fin.substring(0, 5)}`;
-    if (!doctor.schedules.includes(horarioLegible)) {
-      doctor.schedules.push(horarioLegible);
-    }
-
-    // 4. AGREGAR CLÍNICAS / SEDES
-    // Verificamos si ya agregamos esta sede específica para no duplicar la tarjeta de ubicación
     const existingClinicIndex = doctor.clinics.findIndex(c => 
-      c.id === row.clinica_id && 
-      c.branch === row.nombre_sede &&
+      c.id === row.id_clinica && 
+      c.branch === row.sede &&
       c.attentionType === row.tipo_atencion
     );
 
     if (existingClinicIndex === -1) {
       const newClinic: ClinicLocation = {
-        id: row.clinica_id,
+        id: row.id_clinica,
         clinicName: row.nombre_clinica,
-        branch: row.nombre_sede,
-        district: row.distrito,
-        address: `${row.nombre_sede}, ${row.distrito}`,
-        attentionType: row.tipo_atencion, // 'Presencial' o 'Virtual'
-        logoUrl: row.url_logo,
-        price: 150, // Precio referencial (mock)
-        nextAvailable: `${row.dia} ${row.hora_inicio.substring(0, 5)}`
+        branch: row.sede,
+        district: row.distrito || "",
+        address: row.direccion_sede || `${row.sede}, ${row.distrito}`,
+        attentionType: row.tipo_atencion,
+        logoUrl: row.url_logo_clinica,
+        price: 0, // Precio no viene en este JSON
+        nextAvailable: row.dia_atencion ? `${row.dia_atencion} ${row.hora_inicio?.substring(0,5)}` : 'Consultar',
+        bookingUrl: row.url_agenda_cita // Guardamos la url de cita si la necesitas en el futuro
       };
-      doctor.clinics.push(newClinic);
       
-      // Actualizamos el precio base del doctor con el de la primera clínica encontrada
-      if (!doctor.price) {
-        doctor.price = newClinic.price;
-      }
+      doctor.clinics.push(newClinic);
     }
   });
 
