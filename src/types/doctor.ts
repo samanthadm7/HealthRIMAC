@@ -3,7 +3,6 @@
 // ==========================================
 // 1. INTERFAZ DE RESPUESTA DEL API (RAW DATA)
 // ==========================================
-// Esta interfaz define exactamente cómo viene el JSON desde Python.
 export interface ApiDoctorRow {
   medico_id: number;
   nombre_doctor: string;
@@ -29,6 +28,15 @@ export interface ApiDoctorRow {
   tipo_atencion: string; // Ej: "Presencial"
 }
 
+// Nueva interfaz para la respuesta completa del Endpoint Semántico
+export interface SemanticApiResponse {
+  tipo: string;
+  especialidades: string[];
+  filtros_busqueda: any;
+  data: ApiDoctorRow[]; // Aquí viene el array de doctores
+  medicamentos: any[];
+}
+
 // ==========================================
 // 2. INTERFACES DEL FRONTEND (UI)
 // ==========================================
@@ -45,53 +53,53 @@ export interface DoctorCertification {
   year: number;
 }
 
-// Actualizamos esta interfaz para tener más datos de la sede
 export interface ClinicLocation {
-  id: number;          // Nuevo: ID de la clínica
+  id: number;          
   clinicName: string;
   branch: string;
-  district: string;    // Nuevo: Distrito
-  address: string;     // (Calculado o placeholder si el API no lo manda)
+  district: string;    
+  address: string;     
   phone?: string;
   availableSlots?: number;
-  attentionType: string; // 'presencial' | 'virtual' | 'ambos' (string flexible para recibir del api)
-  logoUrl?: string;    // Nuevo: Logo de la clínica
-  nextAvailable?: string; // Nuevo: Texto calculado (ej: "Lunes 08:00")
-  price?: number;      // Nuevo: Precio (placeholder)
+  attentionType: string; 
+  logoUrl?: string;    
+  nextAvailable?: string; 
+  price?: number;      
 }
 
 export interface Doctor {
-  id: number; // CAMBIO IMPORTANTE: El ID ahora es number (viene del backend)
+  id: number; 
   name: string;
   specialty: string;
   photo: string;
   
-  // Información del Colegio Médico del Perú
+  // Información del Colegio Médico
   cmp: string;
   rne?: string;
   verified: boolean;
-  rating?: number; // Nuevo
+  rating: number; 
+  reviews: number;       // Agregado: Cantidad de reseñas (mock)
+  yearsExperience: number; // Agregado: Años de experiencia (mock)
   
   // Información profesional
-  // Los ponemos opcionales o el mapper debe enviar arrays vacíos
   education: DoctorCertification[]; 
   languages: string[];
   
-  // Información de clínicas (Agrupadas)
+  // Información de clínicas
   clinics: ClinicLocation[];
   
-  // Disponibilidad y horarios
-  availability: 'available' | 'limited' | 'unavailable' | string; // Flexible para texto
+  // Disponibilidad
+  availability: 'available' | 'limited' | 'unavailable' | string; 
   schedules: string[];
   
-  // Información adicional
+  // Bio y detalles
   bio: string;
   specializations: string[];
-  
-  // Fuentes
   sources: DoctorSource[];
+  description?: string; // Campo opcional por compatibilidad
+  price?: number;       // Campo opcional por compatibilidad
   
-  // Campos legacy (opcionales para no romper componentes viejos)
+  // Campos legacy
   clinic?: string;
   address?: string;
 }
@@ -101,19 +109,16 @@ export interface Doctor {
 // ==========================================
 
 export interface SearchFilters {
-  // Campos visuales del Frontend (CamelCase) - Para mostrar en la UI
   specialtyName?: string;
   doctorName?: string;
   
-  // Campos para el Backend (SnakeCase + IDs) - Para la petición HTTP
   doctor_nombre?: string;
   especialidad_id?: number;
   clinica_id?: number;
   sede_id?: number;
   fecha?: string;
-  tipo_atencion?: string; // 'presencial' | 'virtual' | 'ambos' | 'all'
+  tipo_atencion?: string;
 
-  // Mantenemos estos por compatibilidad con tu lógica de filtrado local antigua si la usas
   specialty?: string; 
   clinicName?: string;
   branch?: string;

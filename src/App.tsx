@@ -1,11 +1,21 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Header } from './components/Header';
 import { SearchSection } from './components/SearchSection';
 import { DoctorDetail } from './components/DoctorDetail';
 import { mapApiDataToDoctors } from './utils/doctorMapper'; 
 import type { Doctor, SearchFilters, AISearchResult, ApiDoctorRow } from './types/doctor';
+import type { Medicine } from './data/medicines'; 
 
 export type { Doctor };
+
+interface SemanticApiResponse {
+  tipo: string;
+  especialidades: string[];
+  filtros_busqueda: any;
+  data: ApiDoctorRow[];
+  medicamentos: any[]; 
+  sintoma_detectado?: string[]; 
+}
 
 export default function App() {
   const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
@@ -13,130 +23,185 @@ export default function App() {
   const [selectedSpecialty, setSelectedSpecialty] = useState<string>('');
   const [aiInterpretation, setAiInterpretation] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false); 
+  
+  const [aiMedicines, setAiMedicines] = useState<Medicine[]>([]);
 
-  // Función de búsqueda conectada al Backend (VERSIÓN POST)
-  const handleSearch = async (filters: SearchFilters, interpretation?: string) => {
+  useEffect(() => {
+    if ('scrollRestoration' in history) {
+      history.scrollRestoration = 'manual';
+    }
+    window.scrollTo(0, 0);
+  }, []);
+
+  // --- BÚSQUEDA SEMÁNTICA (IA / LEO) ---
+  const handleSemanticSearch = async (queryText: string) => {
+    setIsLoading(true);
+    setAiInterpretation(`Analizando tu consulta: "${queryText}"...`);
+    setSelectedSpecialty(''); 
+    setAiMedicines([]); // Reset previo
+
+    try {
+      // CAMBIO DE IP AQUÍ
+      const url = 'http://10.160.29.147:8000/search/busqueda_semantica';
+      
+      console.log("1. [App] Enviando búsqueda:", queryText);
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ texto: queryText })
+      });
+
+      if (!response.ok) throw new Error(`Error API: ${response.status}`);
+
+      const result: SemanticApiResponse = await response.json();
+      
+      // --- DEBUG LOGS ---
+      console.log("2. [App] JSON Respuesta Completa:", result);
+      console.log("3. [App] Campo 'medicamentos' crudo:", result.medicamentos);
+      // ------------------
+
+      // Lógica de mensaje
+      const especialidadesStr = result.especialidades?.join(' o '); 
+      const sintomaStr = result.sintoma_detectado?.[0]; 
+
+      if (especialidadesStr && sintomaStr) {
+        setAiInterpretation(`Estos especialistas en ${especialidadesStr} te pueden ayudar con tu ${sintomaStr}.`);
+      } else if (especialidadesStr) {
+        setAiInterpretation(`He encontrado especialistas en: ${especialidadesStr}.`);
+      } else {
+        setAiInterpretation('Aquí tienes los resultados más relevantes para tu búsqueda.');
+      }
+
+      // --- MAPEO DE MEDICAMENTOS ---
+      if (result.medicamentos && Array.isArray(result.medicamentos) && result.medicamentos.length > 0) {
+        const mappedMedicines: Medicine[] = result.medicamentos.map((m: any, index: number) => {
+          return {
+            id: m.id || index + 9999,
+            name: m.nombre || m.name || 'Medicamento sugerido',
+            description: m.descripcion || m.description || 'Recomendado para tu síntoma',
+            price: typeof m.precio === 'number' ? m.precio : 0,
+            image: m.imagen || 'https://placehold.co/300x300/eef2f6/333333?text=Medicamento', 
+            brand: m.laboratorio || 'Genérico',
+            category: m.categoria || 'Venta Libre',
+            requiresPrescription: m.receta || false
+          };
+        });
+        
+        console.log("4. [App] Medicamentos Mapeados:", mappedMedicines);
+        setAiMedicines(mappedMedicines);
+      } else {
+        console.warn("4. [App] Array de medicamentos vacío o nulo.");
+        setAiMedicines([]);
+      }
+
+      // Especialidad y Doctores
+      if (result.especialidades && result.especialidades.length > 0) {
+        setSelectedSpecialty(result.especialidades[0]); 
+      } else {
+        setSelectedSpecialty('Resultados');
+      }
+
+      if (result.data && Array.isArray(result.data)) {
+        const processedDoctors = mapApiDataToDoctors(result.data);
+        setFilteredDoctors(processedDoctors);
+      } else {
+        setFilteredDoctors([]);
+      }
+      
+      setSelectedDoctor(null);
+
+    } catch (error) {
+      console.error("[App] Error Crítico:", error);
+      setAiInterpretation('Lo siento, hubo un problema. Intenta usar los filtros manuales.');
+      setFilteredDoctors([]);
+      setAiMedicines([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // --- BÚSQUEDA MANUAL ---
+  const handleManualSearch = async (filters: SearchFilters, interpretation?: string) => {
+    if (interpretation) setAiInterpretation(interpretation);
+    else setAiInterpretation('');
+
+    if (filters.specialtyName) setSelectedSpecialty(filters.specialtyName);
+
+    console.log("[App] Búsqueda manual iniciada, limpiando medicamentos IA");
+    setAiMedicines([]); 
     
-    // Manejo de interpretación IA (visual)
-    if (interpretation) {
-      setAiInterpretation(interpretation);
-    } else {
-      setAiInterpretation('');
-    }
-
-    // Actualizamos título de carrusel de medicinas (visual)
-    if (filters.specialtyName) {
-       setSelectedSpecialty(filters.specialtyName);
-    }
-
     setIsLoading(true);
 
     try {
-      // 1. URL DEL ENDPOINT
+      // CAMBIO DE IP AQUÍ
       const url = 'http://10.160.29.147:8000/search/busqueda';
-      
-      // 2. PREPARAR EL CUERPO (BODY) DEL REQUEST
-      // Creamos un objeto limpio solo con los datos que tienen valor
       const requestBody: Record<string, any> = {};
 
       Object.keys(filters).forEach(key => {
-        // @ts-ignore: Ignoramos checks de TS aquí para iterar dinámicamente
+        // @ts-ignore
         const value = filters[key];
-        
-        // Filtramos valores vacíos, nulos o 'none' y quitamos campos exclusivos del frontend
         if (value !== undefined && value !== null && value !== '' && value !== 'none' && key !== 'specialtyName') {
           requestBody[key] = value;
         }
       });
 
-      console.log("Enviando POST a API:", url);
-      console.log("Payload (Body):", requestBody);
-
-      // 3. HACER LA PETICIÓN POST
       const response = await fetch(url, {
-        method: 'POST', // Método HTTP
-        headers: {
-          'Content-Type': 'application/json', // Indicamos que enviamos JSON
-        },
-        body: JSON.stringify(requestBody) // Convertimos el objeto JS a string JSON
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestBody)
       });
 
-      if (!response.ok) {
-        throw new Error(`Error en la búsqueda: ${response.status} ${response.statusText}`);
-      }
+      if (!response.ok) throw new Error(`Error en la búsqueda: ${response.status}`);
 
       const rawData: ApiDoctorRow[] = await response.json();
-      
-      // 4. PROCESAR LA RESPUESTA (Mapeo de datos)
       const processedDoctors = mapApiDataToDoctors(rawData);
 
       setFilteredDoctors(processedDoctors);
       setSelectedDoctor(null);
 
     } catch (error) {
-      console.error("Error conectando con el backend:", error);
-      setFilteredDoctors([]); // Si falla, limpiamos la lista
+      console.error("Error búsqueda manual:", error);
+      setFilteredDoctors([]);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleAISearch = (result: AISearchResult) => {
-    handleSearch(result.filters, result.interpretation);
-  };
-
-  // --- VISTA DE DETALLE DEL DOCTOR ---
   if (selectedDoctor) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-red-50 to-orange-50 relative">
-        {/* Fondos decorativos */}
-        <div className="absolute inset-0 opacity-30">
-          <div className="absolute top-20 right-20 w-96 h-96 bg-red-200 rounded-full blur-3xl"></div>
-          <div className="absolute bottom-40 left-20 w-96 h-96 bg-orange-200 rounded-full blur-3xl"></div>
-          <div className="absolute top-1/2 left-1/2 w-96 h-96 bg-pink-200 rounded-full blur-3xl"></div>
-        </div>
-        <div className="relative z-10">
-          <Header />
-          <main className="max-w-7xl mx-auto px-4 py-8">
-            <DoctorDetail 
-              doctor={selectedDoctor} 
-              onBack={() => setSelectedDoctor(null)}
-            />
-          </main>
-        </div>
+        <Header />
+        <main className="max-w-7xl mx-auto px-4 py-8">
+          <DoctorDetail 
+            doctor={selectedDoctor} 
+            onBack={() => setSelectedDoctor(null)}
+          />
+        </main>
       </div>
     );
   }
 
-  // --- VISTA PRINCIPAL (BUSCADOR) ---
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-red-50 to-orange-50 relative">
-      <div className="absolute inset-0 opacity-30">
-        <div className="absolute top-20 right-20 w-96 h-96 bg-red-200 rounded-full blur-3xl"></div>
-        <div className="absolute bottom-40 left-20 w-96 h-96 bg-orange-200 rounded-full blur-3xl"></div>
-        <div className="absolute top-1/2 left-1/2 w-96 h-96 bg-pink-200 rounded-full blur-3xl"></div>
-      </div>
-      <div className="relative z-10">
-        <Header />
-        <main className="max-w-7xl mx-auto px-4 py-8">
-          <SearchSection 
-            onSearch={handleSearch}
-            onAISearch={handleAISearch}
-            doctors={filteredDoctors}
-            onDoctorSelect={setSelectedDoctor}
-            selectedSpecialty={selectedSpecialty}
-            aiInterpretation={aiInterpretation}
-          />
-
-          {/* Indicador visual de carga */}
-          {isLoading && (
-            <div className="flex justify-center items-center py-10">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600"></div>
-              <span className="ml-3 text-slate-600 font-medium">Buscando doctores disponibles...</span>
-            </div>
-          )}
-        </main>
-      </div>
+      <Header />
+      <main className="max-w-7xl mx-auto px-4 py-8">
+        <SearchSection 
+          onSearch={handleManualSearch}
+          onAISearch={handleSemanticSearch}
+          doctors={filteredDoctors}
+          onDoctorSelect={setSelectedDoctor}
+          selectedSpecialty={selectedSpecialty}
+          aiInterpretation={aiInterpretation}
+          aiMedicines={aiMedicines} 
+        />
+        {isLoading && (
+          <div className="flex justify-center items-center py-10">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600"></div>
+            <span className="ml-3 text-slate-600 font-medium">Leo está buscando lo mejor para ti...</span>
+          </div>
+        )}
+      </main>
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Search, MapPin, Calendar, User, Monitor, ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -7,42 +7,30 @@ import { AISearchBar } from './AISearchBar';
 import { LeoResponse } from './LeoResponse';
 import { DoctorCard } from './DoctorCard';
 import { MedicineCarousel } from './MedicineCarousel';
-// Importamos Medicine y la función asíncrona
-import { Medicine, getMedicinesBySpecialty } from '../data/medicines'; 
+import { Medicine } from '../data/medicines'; 
 import type { Doctor, SearchFilters, AISearchResult } from '../types/doctor';
 
-// --- NUEVAS FUNCIONES DE UTILIDAD ---
-
-// Helper para capitalizar la primera letra
+// --- FUNCIONES DE UTILIDAD ---
 const capitalize = (s: string): string => {
   if (!s) return '';
   return s.charAt(0).toUpperCase() + s.slice(1);
 };
 
-// Convierte una fecha ISO (YYYY-MM-DD) a un día de la semana en español (e.g., "lunes")
 const dateToSpanishDay = (dateString: string): string | undefined => {
   if (!dateString) return undefined;
   try {
     const date = new Date(dateString + 'T00:00:00');
     if (isNaN(date.getTime())) return undefined;
-
     let day = date.toLocaleDateString('es-ES', { weekday: 'long' }).toLowerCase();
-    
-    // Aseguramos que 'miércoles' se envíe sin acento si es necesario
-    if (day === 'miércoles') {
-      day = 'miercoles';
-    }
-
+    if (day === 'miércoles') day = 'miercoles';
     return day;
-    
   } catch (e) {
     console.error("Error converting date to Spanish day:", e);
     return undefined;
   }
 };
 
-
-// --- TIPOS INTERNOS PARA LA METADATA ---
+// --- INTERFACES DE METADATA ---
 interface Especialidad { id: number; nombre: string; }
 interface Clinica { id: number; nombre: string; }
 interface Sede { id: number; clinica_id: number; nombre: string; distrito: string; }
@@ -54,17 +42,25 @@ interface MetadataResponse {
 }
 
 interface SearchSectionProps {
-  // SearchFilters ahora incluye los campos snake_case del backend
   onSearch: (filters: SearchFilters, interpretation?: string) => void;
   onAISearch: (result: AISearchResult) => void;
   doctors: Doctor[];
   onDoctorSelect: (doctor: Doctor) => void;
   selectedSpecialty: string;
   aiInterpretation: string;
+  aiMedicines?: Medicine[]; 
 }
 
-export function SearchSection({ onSearch, onAISearch, doctors, onDoctorSelect, selectedSpecialty, aiInterpretation }: SearchSectionProps) {
-  // Estados de los inputs manuales
+export function SearchSection({ 
+  onSearch, 
+  onAISearch, 
+  doctors, 
+  onDoctorSelect, 
+  selectedSpecialty, 
+  aiInterpretation,
+  aiMedicines = [] 
+}: SearchSectionProps) {
+  // --- ESTADOS DE FILTROS MANUALES ---
   const [doctorName, setDoctorName] = useState('');
   const [specialty, setSpecialty] = useState('none');
   const [clinicName, setClinicName] = useState('none');
@@ -72,20 +68,21 @@ export function SearchSection({ onSearch, onAISearch, doctors, onDoctorSelect, s
   const [availability, setAvailability] = useState('');
   const [attentionType, setAttentionType] = useState('all');
   
+  // Estados de UI
   const [hasSearched, setHasSearched] = useState(false);
   const [showManualFilters, setShowManualFilters] = useState(false);
 
-  // Estado para la metadata (opciones de los select)
+  // Estado de Datos API (Metadata)
   const [apiData, setApiData] = useState<MetadataResponse>({
     especialidades: [], clinicas: [], sedes: [], tipos_atencion: []
   });
   const [isLoading, setIsLoading] = useState(true);
 
-  // --- ESTADOS para el CAROUSEL ---
+  // Estados para Medicamentos
   const [medicines, setMedicines] = useState<Medicine[]>([]);
-  // Este estado rastrea el nombre de la especialidad que se muestra en el carrusel
   const [carouselSpecialtyName, setCarouselSpecialtyName] = useState(selectedSpecialty); 
-  // ---------------------------------------
+
+  const scrollAnchorRef = useRef<HTMLDivElement>(null);
 
   // 1. CARGAR METADATA AL INICIO
   useEffect(() => {
@@ -104,41 +101,95 @@ export function SearchSection({ onSearch, onAISearch, doctors, onDoctorSelect, s
     fetchMetadata();
   }, []);
 
-  // --- MODIFICACIÓN CLAVE: CARGAR MEDICAMENTOS al inicio y con el cambio de especialidad ---
+// 2. CARGAR MEDICAMENTOS (Lógica Actualizada con URL Correcta)
   useEffect(() => {
-    // 1. Determinar el ID de la especialidad a usar
-    const specialtyObj = apiData.especialidades.find(s => s.nombre === selectedSpecialty);
-    let specialtyId: number | undefined = specialtyObj?.id;
-    let specialtyNameToUse = selectedSpecialty;
+    // CASO A: Prioridad a los medicamentos de IA si existen
+    if (aiMedicines && aiMedicines.length > 0) {
+      console.log('💊 [SearchSection] Usando medicamentos de IA:', aiMedicines.length); // DEBUG 1
+      setMedicines(aiMedicines);
+      setCarouselSpecialtyName(selectedSpecialty || 'Recomendaciones de Leo');
+      return; 
+    }
 
-    // LÓGICA PARA CARGA INICIAL (SIN especialidad seleccionada)
-    if (selectedSpecialty === '' || selectedSpecialty === 'none') {
-        // Al cargar la página, no hay ID de especialidad.
-        // specialtyId es undefined, lo que hará que getMedicinesBySpecialty envíe "especialidad_ids": null
-        // --- CAMBIO CLAVE AQUÍ: Usamos una cadena vacía en lugar de 'General' ---
-        specialtyNameToUse = ''; 
-        specialtyId = undefined; 
+    // CASO B: Carga desde API Backend
+    const fetchMedicinesFromApi = async () => {
+        let specialtyNameForLog = selectedSpecialty || 'Todas (null)'; // DEBUG 2
+
+        try {
+            const specialtyObj = apiData.especialidades.find(s => s.nombre === selectedSpecialty);
+            const specialtyId = specialtyObj ? specialtyObj.id : null;
+            
+            const payload = {
+                especialidad_ids: specialtyId 
+            };
+
+            console.log(`💊 [SearchSection] Solicitando medicamentos para: ${specialtyNameForLog} (ID: ${specialtyId})`); // DEBUG 3
+
+            const response = await fetch('http://10.160.29.147:8000/search/busqueda_medicamentos', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                 // DEBUG 4: Si la respuesta no es OK (ej: 500 Internal Server Error)
+                throw new Error(`Error ${response.status} al cargar medicamentos`);
+            }
+
+            const result = await response.json();
+            console.log('💊 [SearchSection] Respuesta Cruda del API:', result); // DEBUG 5: Verifica el formato
+
+            if (Array.isArray(result) && result.length > 0) {
+                const mappedMedicines = result.map((m: any) => ({
+                    id: m.medicamento_id,
+                    name: m.nombre,
+                    description: m.presentacion || 'Sin presentación', 
+                    price: typeof m.precio_base === 'number' ? m.precio_base : 0,
+                    image: m.url_imagen || 'https://placehold.co/300x300/eef2f6/333333?text=Medicamento', 
+                    brand: 'Generico',
+                    category: 'Farmacia',
+                    requiresPrescription: false
+                }));
+                console.log(`💊 [SearchSection] Medicamentos mapeados con éxito: ${mappedMedicines.length}`); // DEBUG 6
+                setMedicines(mappedMedicines);
+            } else {
+                console.log('💊 [SearchSection] API devolvió un array vacío o no array.'); // DEBUG 7
+                setMedicines([]);
+            }
+
+        } catch (error) {
+            console.error("💊 [SearchSection] Error crítico en la carga:", error); // DEBUG 8
+            setMedicines([]);
+        }
+    };
+
+    // Solo ejecuta la búsqueda si ya cargamos la metadata
+    if (apiData.especialidades.length > 0 || (selectedSpecialty === '' && apiData.especialidades.length === 0)) {
+      fetchMedicinesFromApi();
+    } else {
+       console.log('💊 [SearchSection] Esperando a que cargue la metadata de especialidades...');
     }
     
-    // 2. Buscar medicamentos 
-    // Solo llamamos si la metadata ya cargó (para la inicial 'General') o si la especialidad ha cambiado a una válida.
-    if (apiData.especialidades.length > 0 || specialtyId !== undefined || (selectedSpecialty === '' && apiData.especialidades.length > 0)) {
-      // getMedicinesBySpecialty(undefined) enviará el payload con "especialidad_ids": null
-      getMedicinesBySpecialty(specialtyId) 
-        .then(data => setMedicines(data))
-        .catch(() => setMedicines([]));
-    } else {
-        // Caso: Metadata aún cargando.
-        setMedicines([]); 
+    setCarouselSpecialtyName(selectedSpecialty);
+
+  }, [selectedSpecialty, apiData.especialidades, aiMedicines]);
+
+  // 3. MANEJO DE SCROLL AUTOMÁTICO
+  useEffect(() => {
+    if (aiInterpretation) {
+      setHasSearched(true);
+      setTimeout(() => {
+        if (scrollAnchorRef.current) {
+          scrollAnchorRef.current.scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'start', 
+          });
+        }
+      }, 300);
     }
+  }, [aiInterpretation]);
 
-    // 3. Actualizar el nombre de la especialidad para el título del carrusel
-    setCarouselSpecialtyName(specialtyNameToUse);
-
-  }, [selectedSpecialty, apiData.especialidades]); // Depende de la especialidad seleccionada y los datos de la API
-
-
-  // Filtrado inteligente de sedes (Solo muestra sedes de la clínica seleccionada)
+  // 4. FILTRADO INTELIGENTE DE SEDES
   const availableBranches = useMemo(() => {
     if (clinicName === 'none') return apiData.sedes;
     const selectedClinicObj = apiData.clinicas.find(c => c.nombre === clinicName);
@@ -146,32 +197,22 @@ export function SearchSection({ onSearch, onAISearch, doctors, onDoctorSelect, s
     return apiData.sedes.filter(sede => sede.clinica_id === selectedClinicObj.id);
   }, [clinicName, apiData.sedes, apiData.clinicas]);
 
-  // Limpiar sede si cambia la clínica
   useEffect(() => { setBranch('none'); }, [clinicName]);
 
-  // 2. PREPARAR Y ENVIAR LA BÚSQUEDA (TRADUCCIÓN A IDs)
+  // 5. EJECUTAR BÚSQUEDA MANUAL
   const handleSearch = () => {
-    // Buscamos los objetos completos para obtener sus IDs
     const selectedSpecialtyObj = apiData.especialidades.find(s => s.nombre === specialty);
     const selectedClinicObj = apiData.clinicas.find(c => c.nombre === clinicName);
     const selectedBranchObj = apiData.sedes.find(s => s.nombre === branch);
-
-    // CONVERTIMOS LA FECHA A DÍA DE LA SEMANA
     const dayOfWeek = dateToSpanishDay(availability);
 
-    // Construimos el objeto de filtros con los nombres que espera la API (snake_case)
     const filtersForApi: SearchFilters = {
       nombre_doctor: doctorName || undefined,
-      especialidad_id: selectedSpecialtyObj?.id, // Mandamos ID
-      clinica_id: selectedClinicObj?.id,         // Mandamos ID
-      distrito: selectedBranchObj?.distrito,     // Mandamos Distrito
-      
-      dia: dayOfWeek, // Enviamos el día de la semana
-      
-      // Capitalizamos el tipo de atención si no es 'all'
+      especialidad_id: selectedSpecialtyObj?.id,
+      clinica_id: selectedClinicObj?.id,
+      distrito: selectedBranchObj?.distrito,
+      dia: dayOfWeek,
       tipo_atencion: attentionType === 'all' ? undefined : capitalize(attentionType),
-      
-      // Extra: Mandamos el nombre de la especialidad para el carrusel de medicinas
       specialtyName: specialty !== 'none' ? specialty : undefined
     };
 
@@ -192,10 +233,10 @@ export function SearchSection({ onSearch, onAISearch, doctors, onDoctorSelect, s
 
   return (
     <div>
-      {/* Barra LEO (Inteligente) */}
+      {/* BARRA DE BÚSQUEDA IA (LEO) */}
       <AISearchBar onSearch={onAISearch} />
 
-      {/* Botón para mostrar/ocultar filtros manuales */}
+      {/* BOTÓN TOGGLE PARA FILTROS MANUALES */}
       <div className="mb-8">
         <Button
           onClick={() => setShowManualFilters(!showManualFilters)}
@@ -231,7 +272,7 @@ export function SearchSection({ onSearch, onAISearch, doctors, onDoctorSelect, s
         </Button>
       </div>
 
-      {/* FORMULARIO DE BÚSQUEDA MANUAL */}
+      {/* FORMULARIO DE FILTROS MANUALES */}
       {showManualFilters && (
         <div className="bg-white rounded-2xl shadow-xl p-6 md:p-8 mb-12 border-2 border-red-100">
           <div className="text-center mb-8">
@@ -374,9 +415,13 @@ export function SearchSection({ onSearch, onAISearch, doctors, onDoctorSelect, s
         </div>
       )}
 
-      {/* RESTO DEL COMPONENTE (Resultados, etc.) */}
+      {/* ANCLA DE SCROLL INVISIBLE */}
+      <div ref={scrollAnchorRef} className="scroll-mt-32 w-full h-1"></div>
+
+      {/* RESPUESTA DE LEO */}
       {aiInterpretation && <LeoResponse interpretation={aiInterpretation} />}
       
+      {/* RESULTADOS DE BÚSQUEDA */}
       {hasSearched && (
         <div className="mb-16">
           <div className="mb-6">
@@ -410,7 +455,7 @@ export function SearchSection({ onSearch, onAISearch, doctors, onDoctorSelect, s
         </div>
       )}
 
-      {/* CAMBIO AQUÍ: Usamos el estado 'carouselSpecialtyName' para el título */}
+      {/* CARRUSEL DE MEDICINAS */}
       <MedicineCarousel medicines={medicines} specialty={carouselSpecialtyName} />
     </div>
   );

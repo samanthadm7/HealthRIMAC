@@ -1,9 +1,10 @@
+import { useState, useEffect } from 'react';
 import { ArrowLeft, MapPin, Clock, Building2, Calendar, User, BadgeCheck, GraduationCap, Languages, Phone, ExternalLink, Monitor, Video } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
 import { MedicineGrid } from './MedicineGrid';
-import { getMedicinesBySpecialty } from '../data/medicines';
+import { Medicine } from '../data/medicines'; 
 import type { Doctor } from '../types/doctor';
 
 interface DoctorDetailProps {
@@ -12,7 +13,77 @@ interface DoctorDetailProps {
 }
 
 export function DoctorDetail({ doctor, onBack }: DoctorDetailProps) {
-  const medicines = getMedicinesBySpecialty(doctor.specialty);
+  const [medicines, setMedicines] = useState<Medicine[]>([]);
+  const [isLoadingMedicines, setIsLoadingMedicines] = useState(false);
+
+// Cargar medicamentos desde la API
+  useEffect(() => {
+    const fetchMedicines = async () => {
+      setIsLoadingMedicines(true);
+      console.log(`✨ [DoctorDetail] Iniciando carga de medicamentos para: ${doctor.specialty}`); // DEBUG 9
+
+      try {
+        // 1. Obtener ID de especialidad desde metadata
+        const metaResponse = await fetch('http://10.160.29.147:8000/search/metadata/filtros');
+        if (!metaResponse.ok) throw new Error("Error fetching metadata");
+        const metaData = await metaResponse.json();
+        
+        const specialtyObj = metaData.especialidades.find((s: any) => s.nombre === doctor.specialty);
+        const specialtyId = specialtyObj ? specialtyObj.id : null;
+        
+        console.log(`✨ [DoctorDetail] ID de especialidad encontrado: ${specialtyId}`); // DEBUG 10
+
+        if (specialtyId) {
+            // 2. Fetch de medicamentos
+            const medResponse = await fetch('http://10.160.29.147:8000/search/busqueda_medicamentos', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ especialidad_ids: specialtyId })
+            });
+
+            if (!medResponse.ok) {
+                 // DEBUG 11: Si la respuesta no es OK (ej: 500)
+                throw new Error(`Error ${medResponse.status} al cargar medicamentos`);
+            }
+            
+            const medResult = await medResponse.json();
+            console.log('✨ [DoctorDetail] Respuesta Cruda del API:', medResult); // DEBUG 12
+
+            // 3. Mapeo
+            if (Array.isArray(medResult) && medResult.length > 0) {
+                const mappedMedicines = medResult.map((m: any) => ({
+                    id: m.medicamento_id,
+                    name: m.nombre,
+                    description: m.presentacion || 'Disponible',
+                    price: typeof m.precio_base === 'number' ? m.precio_base : 0,
+                    image: m.url_imagen || 'https://placehold.co/300x300/eef2f6/333333?text=Medicamento', 
+                    brand: 'Generico',
+                    category: 'Venta Libre',
+                    requiresPrescription: false
+                }));
+                console.log(`✨ [DoctorDetail] Medicamentos mapeados con éxito: ${mappedMedicines.length}`); // DEBUG 13
+                setMedicines(mappedMedicines);
+            } else {
+                 console.log('✨ [DoctorDetail] API devolvió un array vacío o no array.'); // DEBUG 14
+                setMedicines([]);
+            }
+        } else {
+            console.log('✨ [DoctorDetail] No se pudo encontrar el ID de la especialidad, saltando fetch de medicinas.'); // DEBUG 15
+            setMedicines([]);
+        }
+
+      } catch (e) {
+        console.error("✨ [DoctorDetail] Error crítico en la carga:", e); // DEBUG 16
+        setMedicines([]);
+      } finally {
+        setIsLoadingMedicines(false);
+      }
+    };
+
+    fetchMedicines();
+
+  }, [doctor.specialty]);
+
 
   const availabilityConfig = {
     available: { 
@@ -47,12 +118,15 @@ export function DoctorDetail({ doctor, onBack }: DoctorDetailProps) {
       <div className="grid lg:grid-cols-3 gap-8 mb-12">
         {/* Left Column - Photo and Basic Info */}
         <div className="lg:col-span-1">
-          <Card className="overflow-hidden border-slate-200 sticky top-24">
+          <Card className="overflow-hidden border-slate-200 sticky lg:top-24">
             <div className="relative h-80 bg-slate-100">
               <img 
                 src={doctor.photo} 
                 alt={doctor.name}
                 className="w-full h-full object-cover"
+                onError={(e) => { 
+                  (e.target as HTMLImageElement).src = 'https://placehold.co/400x400/eeeeee/aaaaaa?text=No+Photo';
+                }}
               />
               {doctor.verified && (
                 <div className="absolute top-4 left-4">
@@ -79,7 +153,7 @@ export function DoctorDetail({ doctor, onBack }: DoctorDetailProps) {
                 </div>
                 <div className="flex items-center justify-center gap-2 text-slate-600">
                   <Languages className="w-4 h-4 text-green-600" />
-                  <span>{doctor.languages.join(', ')}</span>
+                  <span>{doctor.languages?.join(', ') || 'Español'}</span> 
                 </div>
                 <div className="flex items-center justify-center gap-2 text-slate-600">
                   <Building2 className="w-4 h-4 text-red-500" />
@@ -99,7 +173,7 @@ export function DoctorDetail({ doctor, onBack }: DoctorDetailProps) {
             </CardHeader>
             <CardContent>
               <p className="text-slate-700 mb-4">{doctor.bio}</p>
-              {doctor.specializations.length > 0 && (
+              {doctor.specializations?.length > 0 && (
                 <div>
                   <p className="text-sm text-slate-600 mb-2">Subespecialidades:</p>
                   <div className="flex flex-wrap gap-2">
@@ -123,7 +197,7 @@ export function DoctorDetail({ doctor, onBack }: DoctorDetailProps) {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              {doctor.education.map((edu, index) => (
+              {doctor.education?.map((edu, index) => (
                 <div 
                   key={index}
                   className="p-4 bg-slate-50 rounded-lg border border-slate-200"
@@ -212,7 +286,7 @@ export function DoctorDetail({ doctor, onBack }: DoctorDetailProps) {
             </CardHeader>
             <CardContent>
               <div className="grid md:grid-cols-2 gap-3">
-                {doctor.schedules.map((schedule, index) => (
+                {doctor.schedules?.map((schedule, index) => (
                   <div 
                     key={index}
                     className="p-4 bg-green-50 border border-green-200 rounded-lg flex items-center gap-3"
@@ -261,7 +335,14 @@ export function DoctorDetail({ doctor, onBack }: DoctorDetailProps) {
       </div>
 
       {/* Recommended Medicines Section */}
-      <MedicineGrid medicines={medicines} specialty={doctor.specialty} />
+      {isLoadingMedicines ? (
+         <div className="text-center py-10">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600 mx-auto"></div>
+            <p className="text-slate-500 mt-2">Cargando recomendaciones...</p>
+         </div>
+      ) : (
+         <MedicineGrid medicines={medicines} specialty={doctor.specialty} />
+      )}
     </div>
   );
 }
